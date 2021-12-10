@@ -21,3 +21,15 @@ type ServiceInput interface {
 	// to the accumulator before returning.
 	Stop()
 }
+
+type ExternalInput interface {
+	PluginDescriber
+	Initializer
+
+	// Configure allows to pass a configuration to the plugin.
+	Configure(string) error
+
+	// Gather returns the metrics collected by the plugin.
+	// This is called every agent.interval.
+	Gather() ([]Metric, error)
+}

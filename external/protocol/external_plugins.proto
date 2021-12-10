@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package protocol;
+option go_package = "github.com/influxdata/telegraf/external/protocol";
+
+// General types
+message Empty {}
+
+message Error {
+  bool is_error = 1; // true if we actually hit an error and false otherwise (err==nil)
+  string message = 2;
+  optional uint64 errno = 3;  // Error number to communicate a specific error type
+}
+
+// Metric
+message Tag {
+  string key   = 1;
+  string value = 2;
+}
+
+enum FieldType {
+  FTUnknown = 0;
+  Int64   = 1;
+  Uint64  = 2;
+  Float64 = 3;
+  String  = 4;
+  Bool    = 5;
+}
+
+message Field {
+  string    key  = 1;
+  FieldType type = 2;
+  oneof value {
+    int64  value_i64    = 3;
+    uint64 value_u64    = 4;
+    double value_f64    = 5;
+    string value_string = 6;
+    bool   value_bool   = 7;
+  }
+}
+
+enum ValueType {
+  VTUnknown = 0;
+  Counter   = 1;
+  Gauge     = 2;
+  Summary   = 3;
+  Histogram = 4;
+}
+
+message Metric {
+  string name = 1;
+  repeated Tag tags = 2;
+  repeated Field fields = 3;
+  int64 time = 4; // In Unix nanoseconds
+  ValueType type = 5;
+}
+
+// Request / Response definitions
+message DescriptionResponse {
+  string description = 1;
+}
+
+message SampleConfigResponse {
+  string config = 1;
+}
+
+message ConfigureRequest {
+  string config = 1;
+}
+
+message GatherResponse {
+  repeated Metric metric = 1;
+  Error error = 2;
+}
+
+// Plugin service definitions
+service Input {
+  rpc Description(Empty) returns (DescriptionResponse);
+  rpc SampleConfig(Empty) returns (SampleConfigResponse);
+  rpc Configure(ConfigureRequest) returns (Error);
+  rpc Init(Empty) returns (Error);
+  rpc Gather(Empty) returns (GatherResponse);
+}
