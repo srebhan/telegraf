@@ -16,6 +16,7 @@ var handshake = plugin.HandshakeConfig{
   MagicCookieValue: "f2d7c59c-bd1a-4f38-8543-7d1d51b81d49",
 }
 
+// SetupInputPlugin can be used in the external plugin to setup GRPC machinery for an external input plugin
 func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
   models.SetLoggerOnPlugin(impl, models.NewLogger("inputs", name, alias))
 
@@ -32,6 +33,7 @@ func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
   })
 }
 
+// SetupReceiver provides the GRPC machinery for communicating with an external plugin
 func SetupReceiver(cmd string) *plugin.Client {
   // List all available plugin types
   plugins := map[string]plugin.Plugin{
