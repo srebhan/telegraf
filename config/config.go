@@ -21,6 +21,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/external"
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/internal/choice"
 	"github.com/influxdata/telegraf/models"
@@ -555,6 +556,11 @@ func PrintSampleConfig(
 					pnames = append(pnames, pname)
 				}
 			}
+			for pname := range inputs.InputsExternal {
+				if !sliceContains(pname, inputDefaults) {
+					pnames = append(pnames, pname)
+				}
+			}
 			sort.Strings(pnames)
 			printFilteredInputs(pnames, true)
 		}
@@ -631,6 +637,21 @@ func printFilteredInputs(inputFilters []string, commented bool) {
 		}
 
 		printConfig(pname, input, "inputs", commented, inputs.Deprecations[pname])
+	}
+
+	// Print external Inputs
+	var epnames []string
+	for epname := range inputs.InputsExternal {
+		if sliceContains(epname, inputFilters) {
+			epnames = append(epnames, epname)
+		}
+	}
+	sort.Strings(epnames)
+	for _, pname := range epnames {
+		creator := inputs.InputsExternal[pname]
+		input := creator("")()
+
+		printConfig(pname, input, "inputs", commented)
 	}
 
 	// Print Service Inputs
@@ -732,6 +753,34 @@ func PrintOutputConfig(name string) error {
 	}
 
 	printConfig(name, creator(), "outputs", false, outputs.Deprecations[name])
+	return nil
+}
+
+func DiscoverExternalPlugins(path string) error {
+	if path == "" {
+		return nil
+	}
+
+	// Discover all external plugins in the given directory
+	externalPlugins, err := external.Discover(path)
+	if err != nil {
+		return fmt.Errorf("dicovering external plugins failed: %v", err)
+	}
+
+	// Register the plugins
+	log.Printf("I! Found external input plugins: %v", externalPlugins["inputs"])
+	for _, eip := range externalPlugins["inputs"] {
+		// Check for collision
+		if _, found := inputs.Inputs[eip]; found {
+			return fmt.Errorf("collision detected for external input plugin %q", eip)
+		}
+		// Register
+		if _, found := inputs.InputsExternal[eip]; found {
+			return fmt.Errorf("duplicate external input plugin %q", eip)
+		}
+		inputs.AddExternal(eip, external.NewInputWrapper(eip, path))
+	}
+
 	return nil
 }
 
@@ -1265,6 +1314,7 @@ func (c *Config) addInput(name string, table *ast.Table) error {
 	c.setLocalMissingTomlFieldTracker(missCount)
 	defer c.resetMissingTomlFieldTracker()
 
+	var skipUnmarshal bool
 	creator, ok := inputs.Inputs[name]
 	if !ok {
 		// Handle removed, deprecated plugins
@@ -1273,7 +1323,15 @@ func (c *Config) addInput(name string, table *ast.Table) error {
 			return fmt.Errorf("plugin deprecated")
 		}
 
-		return fmt.Errorf("Undefined but requested input: %s", name)
+		// Fallback to external plugins if possible
+		fmt.Printf("external registry: %v\n", inputs.InputsExternal)
+		creatorExternal, ok := inputs.InputsExternal[name]
+		if !ok {
+			return fmt.Errorf("undefined but requested input: %s", name)
+		}
+		// Serialize the TOML config to pass to the external plugin and create a creator :-)
+		creator = creatorExternal(table.Source())
+		skipUnmarshal = true
 	}
 	input := creator()
 
@@ -1373,8 +1431,10 @@ func (c *Config) addInput(name string, table *ast.Table) error {
 		return err
 	}
 
-	if err := c.toml.UnmarshalTable(table, input); err != nil {
-		return err
+	if !skipUnmarshal {
+		if err := c.toml.UnmarshalTable(table, input); err != nil {
+			return err
+		}
 	}
 
 	if err := c.printUserDeprecation("inputs", name, input); err != nil {

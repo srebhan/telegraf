@@ -1,4 +1,4 @@
-package external
+package input
 
 import (
   "context"
@@ -11,20 +11,20 @@ import (
   "github.com/influxdata/telegraf/external/protocol"
 )
 
-type externalInputPlugin struct {
+type ExternalPlugin struct {
   plugin.NetRPCUnsupportedPlugin
   Plugin telegraf.ExternalInput
 }
 
-func (p *externalInputPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	protocol.RegisterInputServer(s, &externalInputServer{
+func (p *ExternalPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
+	protocol.RegisterInputServer(s, &server{
 		Plugin: p.Plugin,
 		broker: broker,
 	})
 	return nil
 }
 
-func (p *externalInputPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
+func (p *ExternalPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
 	return &externalInputClient{
 		client: protocol.NewInputClient(c),
 		broker: broker,
@@ -32,39 +32,39 @@ func (p *externalInputPlugin) GRPCClient(ctx context.Context, broker *plugin.GRP
 }
 
 // Server implementation
-type externalInputServer struct {
+type server struct {
   Plugin telegraf.ExternalInput
   broker *plugin.GRPCBroker
   protocol.UnimplementedInputServer
 }
 
-func (s *externalInputServer) Description(context.Context, *protocol.Empty) (*protocol.DescriptionResponse, error) {
+func (s *server) Description(context.Context, *protocol.Empty) (*protocol.DescriptionResponse, error) {
   descr := s.Plugin.Description()
   return &protocol.DescriptionResponse{Description: descr}, nil
 }
 
-func (s *externalInputServer) SampleConfig(context.Context, *protocol.Empty) (*protocol.SampleConfigResponse, error) {
+func (s *server) SampleConfig(context.Context, *protocol.Empty) (*protocol.SampleConfigResponse, error) {
   config := s.Plugin.SampleConfig()
   return &protocol.SampleConfigResponse{Config: config}, nil
 }
 
-func (s *externalInputServer) Configure(_ context.Context, req *protocol.ConfigureRequest) (*protocol.Error, error) {
+func (s *server) Configure(_ context.Context, req *protocol.ConfigureRequest) (*protocol.Error, error) {
   err := s.Plugin.Configure(req.Config)
-  return ToErrorMessage(err), nil
+  return protocol.ToErrorMessage(err), nil
 }
 
-func (s *externalInputServer) Init(context.Context, *protocol.Empty) (*protocol.Error, error) {
+func (s *server) Init(context.Context, *protocol.Empty) (*protocol.Error, error) {
   err := s.Plugin.Init()
-  return ToErrorMessage(err), nil
+  return protocol.ToErrorMessage(err), nil
 }
 
-func (s *externalInputServer) Gather(context.Context, *protocol.Empty) (*protocol.GatherResponse, error) {
+func (s *server) Gather(context.Context, *protocol.Empty) (*protocol.GatherResponse, error) {
   metrics, err := s.Plugin.Gather()
   if err != nil {
-    return &protocol.GatherResponse{Error: ToErrorMessage(err)}, nil
+    return &protocol.GatherResponse{Error: protocol.ToErrorMessage(err)}, nil
   }
 
-  msgmetrics, err := ToMetricsMessage(metrics)
+  msgmetrics, err := protocol.ToMetricsMessage(metrics)
   if err != nil  {
     return nil, err
   }
@@ -102,7 +102,7 @@ func (c *externalInputClient) Configure(config string) error {
 		return fmt.Errorf("gRPC call failed: %v", err)
 	}
 
-	return FromErrorMessage(resp)
+	return protocol.FromErrorMessage(resp)
 }
 
 func (c * externalInputClient) Init() error {
@@ -111,7 +111,7 @@ func (c * externalInputClient) Init() error {
 		return fmt.Errorf("gRPC call failed: %v", err)
 	}
 
-	return FromErrorMessage(resp)
+	return protocol.FromErrorMessage(resp)
 }
 
 func (c *externalInputClient) Gather() ([]telegraf.Metric, error) {
@@ -120,9 +120,9 @@ func (c *externalInputClient) Gather() ([]telegraf.Metric, error) {
 		return nil, fmt.Errorf("gRPC call failed: %v", err)
 	}
 
-  if err := FromErrorMessage(resp.GetError()); err != nil {
+  if err := protocol.FromErrorMessage(resp.GetError()); err != nil {
     return nil, err
   }
 
-	return FromMetricsMessage(resp.GetMetric()), nil
+	return protocol.FromMetricsMessage(resp.GetMetric()), nil
 }

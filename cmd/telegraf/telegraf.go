@@ -18,6 +18,7 @@ import (
 	"github.com/coreos/go-systemd/daemon"
 
 	"github.com/fatih/color"
+	"github.com/hashicorp/go-plugin"
 
 	"github.com/influxdata/tail/watch"
 	"github.com/influxdata/telegraf"
@@ -206,6 +207,9 @@ func runAgent(ctx context.Context,
 	inputFilters []string,
 	outputFilters []string,
 ) error {
+	log.Printf("I! Starting Telegraf %s", version)
+	defer plugin.CleanupClients()
+
 	// If no other options are specified, load the config file and run.
 	c := config.NewConfig()
 	c.OutputFilters = outputFilters
@@ -394,8 +398,11 @@ func main() {
 	if *fPlugins != "" {
 		log.Printf("I! Loading external plugins from: %s", *fPlugins)
 		if err := goplugin.LoadExternalPlugins(*fPlugins); err != nil {
-			log.Fatal("E! " + err.Error())
+			log.Print("W! " + err.Error())
 		}
+	}
+	if err := config.DiscoverExternalPlugins(*fPlugins); err != nil {
+		log.Fatal("E! "+err.Error())
 	}
 
 	if *pprofAddr != "" {
@@ -442,6 +449,7 @@ func main() {
 			aggregatorFilters,
 			processorFilters,
 		)
+
 		//nolint:revive // We will notice if Println fails
 		fmt.Println("Deprecated Input Plugins: ")
 		c.PrintDeprecationList(infos["inputs"])
