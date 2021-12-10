@@ -10,7 +10,7 @@ import (
   "github.com/influxdata/telegraf/models"
 )
 
-var Handshake = plugin.HandshakeConfig{
+var handshake = plugin.HandshakeConfig{
   ProtocolVersion:  1,
   MagicCookieKey:   "TELEGRAF_PLUGIN",
   MagicCookieValue: "f2d7c59c-bd1a-4f38-8543-7d1d51b81d49",
@@ -25,7 +25,7 @@ func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
   }
 
   plugin.Serve(&plugin.ServeConfig{
-    HandshakeConfig: Handshake,
+    HandshakeConfig: handshake,
     Plugins:         plugins,
     Logger:          hclog.NewNullLogger(),
     GRPCServer:      plugin.DefaultGRPCServer,
@@ -40,7 +40,7 @@ func SetupReceiver(cmd string) *plugin.Client {
 
   // We're a host! Start by launching the plugin process.
   return plugin.NewClient(&plugin.ClientConfig{
-    HandshakeConfig: Handshake,
+    HandshakeConfig: handshake,
     Plugins:         plugins,
     Cmd:             exec.Command(cmd),
     Logger:					 hclog.NewNullLogger(),
