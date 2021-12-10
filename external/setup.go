@@ -17,6 +17,7 @@ var handshake = plugin.HandshakeConfig{
 }
 
 // SetupInputPlugin can be used in the external plugin to setup GRPC machinery for an external input plugin
+// This function has to be called in the plugin!
 func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
   models.SetLoggerOnPlugin(impl, models.NewLogger("inputs", name, alias))
 
@@ -25,6 +26,7 @@ func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
     "input": &externalInputPlugin{Plugin: impl},
   }
 
+  // Startup the server (the plugin) for us to connect to
   plugin.Serve(&plugin.ServeConfig{
     HandshakeConfig: handshake,
     Plugins:         plugins,
@@ -34,17 +36,17 @@ func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
 }
 
 // SetupReceiver provides the GRPC machinery for communicating with an external plugin
-func SetupReceiver(cmd string) *plugin.Client {
+func SetupReceiver(cmd *exec.Cmd) *plugin.Client {
   // List all available plugin types
   plugins := map[string]plugin.Plugin{
     "input": &externalInputPlugin{},
   }
 
-  // We're a host! Start by launching the plugin process.
+  // Startup the client (us) to call functions in the server (the plugin) and receive data
   return plugin.NewClient(&plugin.ClientConfig{
     HandshakeConfig: handshake,
     Plugins:         plugins,
-    Cmd:             exec.Command(cmd),
+    Cmd:             cmd,
     Logger:					 hclog.NewNullLogger(),
     Stderr:          &logger{},
     AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},

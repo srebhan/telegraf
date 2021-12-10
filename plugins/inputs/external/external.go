@@ -2,6 +2,7 @@ package external
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/hashicorp/go-plugin"
 
@@ -42,7 +43,7 @@ func (e *External) SampleConfig() string {
 }
 
 func (e *External) Init() error {
-	e.client = external.SetupReceiver(e.Path)
+	e.client = external.SetupReceiver(exec.Command(e.Path))
 
   return nil
 }
