@@ -6,18 +6,18 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-  "github.com/influxdata/telegraf"
-  "github.com/influxdata/telegraf/external"
+	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/external"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
 
 type External struct {
-  Name string `toml:"name"`
-  Path string `toml:"path"`
-  Log  telegraf.Logger `toml:"-"`
+	Name string          `toml:"name"`
+	Path string          `toml:"path"`
+	Log  telegraf.Logger `toml:"-"`
 
-  client *plugin.Client
-  plugin  telegraf.ExternalInput
+	client *plugin.Client
+	plugin telegraf.ExternalInput
 }
 
 const sampleConfig = `
@@ -39,21 +39,21 @@ func (e *External) Description() string {
 // SampleConfig will populate the sample configuration portion of the plugin's configuration
 func (e *External) SampleConfig() string {
 	cfg := e.plugin.SampleConfig()
-	return sampleConfig+"\n"+cfg
+	return sampleConfig + "\n" + cfg
 }
 
 func (e *External) Init() error {
 	e.client = external.SetupReceiver(exec.Command(e.Path))
 
-  return nil
+	return nil
 }
 
 func (e *External) Start(_ telegraf.Accumulator) error {
-  e.Log.Debug("start called...")
+	e.Log.Debug("start called...")
 
 	e.Log.Debugf("client: %v", e.client)
 
-  // Connect
+	// Connect
 	clientProto, err := e.client.Client()
 	if err != nil {
 		return fmt.Errorf("connecting to external plugin %q failed: %v", e.Name, err)
@@ -67,13 +67,13 @@ func (e *External) Start(_ telegraf.Accumulator) error {
 	}
 	e.Log.Debugf("raw plugin: %v (%T)", raw, raw)
 
-  // Store the plugin for later calls
+	// Store the plugin for later calls
 	plugin, ok := raw.(telegraf.ExternalInput)
-  if !ok {
-    return fmt.Errorf("external plugin is not an %q plugin", "input")
-  }
-  e.plugin = plugin
-  e.Log.Debugf("started plugin: %v", e.plugin)
+	if !ok {
+		return fmt.Errorf("external plugin is not an %q plugin", "input")
+	}
+	e.plugin = plugin
+	e.Log.Debugf("started plugin: %v", e.plugin)
 	description := e.plugin.Description()
 	e.Log.Debug(description)
 
@@ -86,27 +86,27 @@ func (e *External) Start(_ telegraf.Accumulator) error {
 		return fmt.Errorf("initialization failed: %v", err)
 	}
 
-  return nil
+	return nil
 }
 
 func (e *External) Stop() {
-  e.Log.Debug("stop called...")
-  e.client.Kill()
+	e.Log.Debug("stop called...")
+	e.client.Kill()
 }
 
 func (e *External) Gather(acc telegraf.Accumulator) error {
-  e.Log.Debugf("gather plugin: %v", e.plugin)
+	e.Log.Debugf("gather plugin: %v", e.plugin)
 
-  metrics, err := e.plugin.Gather()
-  if err != nil {
-    return err
-  }
-  e.Log.Debugf("received %d metrics", len(metrics))
-  for _, m := range metrics {
-    acc.AddMetric(m)
-  }
+	metrics, err := e.plugin.Gather()
+	if err != nil {
+		return err
+	}
+	e.Log.Debugf("received %d metrics", len(metrics))
+	for _, m := range metrics {
+		acc.AddMetric(m)
+	}
 
-  return nil
+	return nil
 }
 
 // Register the plugin

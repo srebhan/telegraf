@@ -402,7 +402,7 @@ func main() {
 		}
 	}
 	if err := config.DiscoverExternalPlugins(*fPlugins); err != nil {
-		log.Fatal("E! "+err.Error())
+		log.Fatal("E! " + err.Error())
 	}
 
 	if *pprofAddr != "" {
