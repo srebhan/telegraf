@@ -90,6 +90,7 @@ help:
 	@echo '  clean        - delete build artifacts'
 	@echo '  package      - build all supported packages, override include_packages to only build a subset'
 	@echo '                 e.g.: make package include_packages="amd64.deb"'
+	@echo '  protocol     - recreate the code generated from the external-plugins protocol-buffer'
 	@echo ''
 	@echo 'Possible values for include_packages variable'
 	@$(foreach package,$(include_packages),echo "  $(package)";)
@@ -100,6 +101,12 @@ help:
 	@echo '   telegraf-$(tar_version)_arch.tar.gz'
 	@echo '   telegraf-$(tar_version)_arch.zip'
 
+
+PHONY: protocol
+protocol:
+	protoc --go_out=.      --go_opt=paths=source_relative \
+	       --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+				 external/protocol/external_plugins.proto
 
 .PHONY: deps
 deps:
