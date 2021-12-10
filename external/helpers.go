@@ -22,7 +22,7 @@ func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
 
   // List all available plugin types
   plugins := map[string]plugin.Plugin{
-    "input": &ExternalInputPlugin{Plugin: impl},
+    "input": &externalInputPlugin{Plugin: impl},
   }
 
   plugin.Serve(&plugin.ServeConfig{
@@ -37,7 +37,7 @@ func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
 func SetupReceiver(cmd string) *plugin.Client {
   // List all available plugin types
   plugins := map[string]plugin.Plugin{
-    "input": &ExternalInputPlugin{},
+    "input": &externalInputPlugin{},
   }
 
   // We're a host! Start by launching the plugin process.
@@ -46,7 +46,7 @@ func SetupReceiver(cmd string) *plugin.Client {
     Plugins:         plugins,
     Cmd:             exec.Command(cmd),
     Logger:					 hclog.NewNullLogger(),
-    Stderr:          &Logger{},
+    Stderr:          &logger{},
     AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
   })
 }

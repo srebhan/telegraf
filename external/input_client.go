@@ -10,12 +10,12 @@ import (
   "github.com/influxdata/telegraf/external/protocol"
 )
 
-type ExternalInputClient struct {
+type externalInputClient struct {
  	broker *plugin.GRPCBroker
 	client protocol.InputClient
 }
 
-func (c *ExternalInputClient) Description() string {
+func (c *externalInputClient) Description() string {
   resp, err := c.client.Description(context.Background(), &protocol.Empty{})
 	if err != nil {
     panic(fmt.Errorf("gRPC call failed: %v", err))
@@ -24,7 +24,7 @@ func (c *ExternalInputClient) Description() string {
 	return resp.GetDescription()
 }
 
-func (c *ExternalInputClient) SampleConfig() string {
+func (c *externalInputClient) SampleConfig() string {
   resp, err := c.client.SampleConfig(context.Background(), &protocol.Empty{})
 	if err != nil {
 		panic(fmt.Errorf("gRPC call failed: %v", err))
@@ -33,7 +33,7 @@ func (c *ExternalInputClient) SampleConfig() string {
 	return resp.GetConfig()
 }
 
-func (c *ExternalInputClient) Configure(config string) error {
+func (c *externalInputClient) Configure(config string) error {
   resp, err := c.client.Configure(context.Background(), &protocol.ConfigureRequest{Config: config})
 	if err != nil {
 		return fmt.Errorf("gRPC call failed: %v", err)
@@ -42,7 +42,7 @@ func (c *ExternalInputClient) Configure(config string) error {
 	return FromErrorMessage(resp)
 }
 
-func (c * ExternalInputClient) Init() error {
+func (c * externalInputClient) Init() error {
   resp, err := c.client.Init(context.Background(), &protocol.Empty{})
 	if err != nil {
 		return fmt.Errorf("gRPC call failed: %v", err)
@@ -51,7 +51,7 @@ func (c * ExternalInputClient) Init() error {
 	return FromErrorMessage(resp)
 }
 
-func (c *ExternalInputClient) Gather() ([]telegraf.Metric, error) {
+func (c *externalInputClient) Gather() ([]telegraf.Metric, error) {
   resp, err := c.client.Gather(context.Background(), &protocol.Empty{})
 	if err != nil {
 		return nil, fmt.Errorf("gRPC call failed: %v", err)

@@ -10,21 +10,21 @@ import (
   "github.com/influxdata/telegraf/external/protocol"
 )
 
-type ExternalInputPlugin struct {
+type externalInputPlugin struct {
   plugin.NetRPCUnsupportedPlugin
   Plugin telegraf.ExternalInput
 }
 
-func (p *ExternalInputPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	protocol.RegisterInputServer(s, &ExternalInputServer{
+func (p *externalInputPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
+	protocol.RegisterInputServer(s, &externalInputServer{
 		Plugin: p.Plugin,
 		broker: broker,
 	})
 	return nil
 }
 
-func (p *ExternalInputPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
-	return &ExternalInputClient{
+func (p *externalInputPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
+	return &externalInputClient{
 		client: protocol.NewInputClient(c),
 		broker: broker,
 	}, nil
