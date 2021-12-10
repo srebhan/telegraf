@@ -45,6 +45,8 @@ func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
 
 // SetupReceiver provides the GRPC machinery for communicating with an external plugin
 func SetupReceiver(cmd *exec.Cmd) *plugin.Client {
+	log.SetFlags(0)
+
 	// List all available plugin types
 	plugins := map[string]plugin.Plugin{
 		"input": &input.ExternalPlugin{},
