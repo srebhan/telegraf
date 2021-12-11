@@ -8,9 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/influxdata/toml"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/external/input"
@@ -43,10 +45,21 @@ func SetupInputPlugin(name, alias string, impl telegraf.ExternalInput) {
 	})
 }
 
+func ConfigurePlugin(config string, v interface{}) error {
+	// Strip the subtable
+	parts := strings.SplitAfterN(config, "\n", 2)
+	if len(parts) < 2 {
+		return nil
+	}
+	table, err := toml.Parse([]byte(parts[1]))
+	if err != nil {
+		return err
+	}
+	return toml.UnmarshalTable(table, v)
+}
+
 // SetupReceiver provides the GRPC machinery for communicating with an external plugin
 func SetupReceiver(cmd *exec.Cmd) *plugin.Client {
-	log.SetFlags(0)
-
 	// List all available plugin types
 	plugins := map[string]plugin.Plugin{
 		"input": &input.ExternalPlugin{},

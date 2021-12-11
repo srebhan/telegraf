@@ -1330,6 +1330,7 @@ func (c *Config) addInput(name string, table *ast.Table) error {
 			return fmt.Errorf("undefined but requested input: %s", name)
 		}
 		// Serialize the TOML config to pass to the external plugin and create a creator :-)
+		fmt.Printf("table.Fields: %v\n", table.Fields)
 		creator = creatorExternal(table.Source())
 		skipUnmarshal = true
 	}
