@@ -628,7 +628,10 @@ func printFilteredInputs(inputFilters []string, commented bool) {
 			continue
 		}
 		creator := inputs.Inputs[pname]
-		input := creator()
+		input, err := creator()
+		if err != nil {
+			log.Printf("E! Calling creator for %q failed: %v", pname, err)
+		}
 
 		if p, ok := input.(telegraf.ServiceInput); ok {
 			servInputs[pname] = p
@@ -649,7 +652,10 @@ func printFilteredInputs(inputFilters []string, commented bool) {
 	sort.Strings(epnames)
 	for _, pname := range epnames {
 		creator := inputs.InputsExternal[pname]
-		input := creator("")()
+		input, err := creator("")()
+		if err != nil {
+			log.Printf("E! Calling creator for %q failed: %v", pname, err)
+		}
 
 		printConfig(pname, input, "inputs", commented)
 	}
@@ -736,9 +742,14 @@ func sliceContains(name string, list []string) bool {
 
 // PrintInputConfig prints the config usage of a single input.
 func PrintInputConfig(name string) error {
-	creator, ok := inputs.Inputs[name]
-	if !ok {
-		return fmt.Errorf("input %s not found", name)
+	if creator, ok := inputs.Inputs[name]; ok {
+		input, err := creator()
+		if err != nil {
+			log.Printf("E! Calling creator for %q failed: %v", name, err)
+		}
+		printConfig(name, input, "inputs", false)
+	} else {
+		return fmt.Errorf("Input %s not found", name)
 	}
 
 	printConfig(name, creator(), "inputs", false, inputs.Deprecations[name])
@@ -762,7 +773,7 @@ func DiscoverExternalPlugins(path string) error {
 	}
 
 	// Discover all external plugins in the given directory
-	externalPlugins, err := external.Discover(path)
+	externalPlugins, checksums, err := external.Discover(path)
 	if err != nil {
 		return fmt.Errorf("dicovering external plugins failed: %v", err)
 	}
@@ -774,11 +785,17 @@ func DiscoverExternalPlugins(path string) error {
 		if _, found := inputs.Inputs[eip]; found {
 			return fmt.Errorf("collision detected for external input plugin %q", eip)
 		}
-		// Register
 		if _, found := inputs.InputsExternal[eip]; found {
 			return fmt.Errorf("duplicate external input plugin %q", eip)
 		}
-		inputs.AddExternal(eip, external.NewInputWrapper(eip, path))
+		// Determine if we can get a checksum for the plugin
+		checksum := checksums["inputs"][eip]
+		if len(checksums["inputs"]) > 0 && checksum == "" {
+			log.Printf("W! No checksum for plugin %q!", eip)
+		}
+
+		// Register
+		inputs.AddExternal(eip, external.NewInputWrapper(eip, path, checksum))
 	}
 
 	return nil
@@ -1324,17 +1341,18 @@ func (c *Config) addInput(name string, table *ast.Table) error {
 		}
 
 		// Fallback to external plugins if possible
-		fmt.Printf("external registry: %v\n", inputs.InputsExternal)
 		creatorExternal, ok := inputs.InputsExternal[name]
 		if !ok {
 			return fmt.Errorf("undefined but requested input: %s", name)
 		}
 		// Serialize the TOML config to pass to the external plugin and create a creator :-)
-		fmt.Printf("table.Fields: %v\n", table.Fields)
 		creator = creatorExternal(table.Source())
 		skipUnmarshal = true
 	}
-	input := creator()
+	input, err := creator()
+	if err != nil {
+		return fmt.Errorf("calling creator failed: %v", err)
+	}
 
 	// If the input has a SetParser or SetParserFunc function, it can accept
 	// arbitrary data-formats, so build the requested parser and set it.

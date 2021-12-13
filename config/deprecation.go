@@ -233,7 +233,10 @@ func (c *Config) CollectDeprecationInfos(inFilter, outFilter, aggFilter, procFil
 			continue
 		}
 
-		plugin := creator()
+		plugin, err := creator()
+		if err != nil {
+			panic(err)
+		}
 		info := c.collectDeprecationInfo("inputs", name, plugin, true)
 
 		if info.LogLevel != None || len(info.Options) > 0 {
