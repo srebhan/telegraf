@@ -71,6 +71,7 @@ func SetupReceiver(cmd *exec.Cmd) *plugin.Client {
 		Plugins:          plugins,
 		Cmd:              cmd,
 		Managed:          true,
+		AutoMTLS:         true,
 		Logger:           hclog.NewNullLogger(),
 		Stderr:           &logger{},
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
