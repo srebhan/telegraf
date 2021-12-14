@@ -3,8 +3,10 @@ package input
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-plugin"
+	"github.com/influxdata/toml"
 	"google.golang.org/grpc"
 
 	"github.com/influxdata/telegraf"
@@ -49,7 +51,19 @@ func (s *server) SampleConfig(context.Context, *protocol.Empty) (*protocol.Sampl
 }
 
 func (s *server) Configure(_ context.Context, req *protocol.ConfigureRequest) (*protocol.Error, error) {
-	err := s.Plugin.Configure(req.Config)
+	config := req.Config
+
+	// Strip the subtable
+	parts := strings.SplitAfterN(config, "\n", 2)
+	if len(parts) < 2 {
+		return protocol.ToErrorMessage(nil), nil
+	}
+	table, err := toml.Parse([]byte(parts[1]))
+	if err != nil {
+		return protocol.ToErrorMessage(err), nil
+	}
+	err = toml.UnmarshalTable(table, s.Plugin)
+
 	return protocol.ToErrorMessage(err), nil
 }
 

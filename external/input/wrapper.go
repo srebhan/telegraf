@@ -9,12 +9,17 @@ import (
 	"github.com/influxdata/telegraf"
 )
 
+type serverSide interface {
+	telegraf.ExternalInput
+	Configure(string) error
+}
+
 type Wrapper struct {
 	Log telegraf.Logger `toml:"-"`
 
 	name   string
 	config string
-	plugin telegraf.ExternalInput
+	plugin serverSide
 }
 
 // External plugin support functions
@@ -37,7 +42,7 @@ func NewWrapper(name, config string, client *plugin.Client) (*Wrapper, error) {
 	}
 
 	// Store the plugin for later calls
-	plugin, ok := raw.(telegraf.ExternalInput)
+	plugin, ok := raw.(serverSide)
 	if !ok {
 		return nil, errors.New("external plugin is not an input plugin")
 	}
@@ -61,8 +66,6 @@ func (w *Wrapper) Init() error {
 }
 
 func (w *Wrapper) Gather(acc telegraf.Accumulator) error {
-	w.Log.Debugf("gather plugin: %v", w.plugin)
-
 	metrics, err := w.plugin.Gather()
 	if err != nil {
 		return err

@@ -22,12 +22,10 @@ type ServiceInput interface {
 	Stop()
 }
 
+// ExternalInput interface to be fulfilled by external input plugins
 type ExternalInput interface {
 	PluginDescriber
 	Initializer
-
-	// Configure allows to pass a configuration to the plugin.
-	Configure(string) error
 
 	// Gather returns the metrics collected by the plugin.
 	// This is called every agent.interval.
