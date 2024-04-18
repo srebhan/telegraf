@@ -79,6 +79,9 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   # pid_finder = "pgrep"
 
   ## New-style filtering configuration (multiple filter sections are allowed)
+  ## In this case the 'pid_finder' is 'native' (/proc on linux plateform for sample)
+  ## Over Windows OS, "executables" and "process_names" filter on the same data, so
+  ## don't use both
   # [[inputs.procstat.filter]]
   #    ## Name of the filter added as 'filter' tag
   #    name = "shell"
@@ -96,11 +99,11 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   #    ## Process filters, multiple ones are allowed
   #    ## Regular expressions to use for matching againt the full command
   #    # patterns = ['.*']
-  #    ## List of users owning the process (wildcards are supported)
+  #    ## List of users owning the process (glob patterns are supported)
   #    # users = ['*']
-  #    ## List of executable paths of the process (wildcards are supported)
+  #    ## List of executable paths of the process (glob patterns are supported)
   #    # executables = ['*']
-  #    ## List of process names (wildcards are supported)
+  #    ## List of process names (glob patterns are supported)
   #    # process_names = ['*']
   #    ## Recursion depth for determining children of the matched processes
   #    ## A negative value means all children with infinite depth
