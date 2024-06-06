@@ -96,7 +96,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gopacket/gopacket v1.2.0
 	github.com/gopcua/opcua v0.5.3
-	github.com/gophercloud/gophercloud v1.12.0
+	github.com/gophercloud/gophercloud/v2 v2.0.0-rc.3
 	github.com/gorcon/rcon v1.3.5
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.1
@@ -224,8 +224,6 @@ require (
 	modernc.org/sqlite v1.30.0
 )
 
-require github.com/gophercloud/gophercloud/v2 v2.0.0-rc.3 // indirect
-
 require (
 	cloud.google.com/go v0.112.2 // indirect
 	cloud.google.com/go/auth v0.3.0 // indirect
@@ -345,6 +343,7 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
+	github.com/gophercloud/gophercloud v1.12.0 // indirect
 	github.com/gorilla/schema v1.2.1 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
