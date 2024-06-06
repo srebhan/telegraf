@@ -894,6 +894,7 @@ func (o *OpenStack) gatherServers(ctx context.Context, acc telegraf.Accumulator)
 		}
 
 		// Extract the flavor details to avoid joins (ignore errors and leave as zero values)
+		o.Log.Debugf("received flavor %+v", server.Flavor)
 		var vcpus, ram, disk int
 		if flavorIDInterface, found := server.Flavor["id"]; found {
 			if flavorID, ok := flavorIDInterface.(string); ok {
