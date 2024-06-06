@@ -141,9 +141,6 @@ func (o *OpenStack) Init() error {
 }
 
 func (o *OpenStack) Start(telegraf.Accumulator) error {
-	o.openstackFlavors = map[string]flavors.Flavor{}
-	o.openstackProjects = map[string]projects.Project{}
-
 	// Authenticate against Keystone and get a token provider
 	provider, err := openstack.NewClient(o.IdentityEndpoint)
 	if err != nil {
@@ -232,6 +229,37 @@ func (o *OpenStack) Start(telegraf.Accumulator) error {
 				o.Log.Warnf("Disabling %q service because block-storage is not available at the endpoint!", s)
 				delete(o.services, s)
 			}
+		}
+	}
+
+	// Prepare cross-dependency information
+	o.openstackFlavors = map[string]flavors.Flavor{}
+	o.openstackProjects = map[string]projects.Project{}
+	if slices.Contains(o.EnabledServices, "servers") {
+		// We need the flavors to output machine details for servers
+		page, err := flavors.ListDetail(o.compute, nil).AllPages(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to list flavors: %w", err)
+		}
+		extractedflavors, err := flavors.ExtractFlavors(page)
+		if err != nil {
+			return fmt.Errorf("unable to extract flavors: %w", err)
+		}
+		for _, flavor := range extractedflavors {
+			o.openstackFlavors[flavor.ID] = flavor
+		}
+
+		// We need the project to deliver a human readable name in servers
+		page, err = projects.List(o.identity, nil).AllPages(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to list projects: %w", err)
+		}
+		extractedProjects, err := projects.ExtractProjects(page)
+		if err != nil {
+			return fmt.Errorf("unable to extract projects: %w", err)
+		}
+		for _, project := range extractedProjects {
+			o.openstackProjects[project.ID] = project
 		}
 	}
 
@@ -894,7 +922,6 @@ func (o *OpenStack) gatherServers(ctx context.Context, acc telegraf.Accumulator)
 		}
 
 		// Extract the flavor details to avoid joins (ignore errors and leave as zero values)
-		o.Log.Debugf("received flavor %+v", server.Flavor)
 		var vcpus, ram, disk int
 		if flavorIDInterface, found := server.Flavor["id"]; found {
 			if flavorID, ok := flavorIDInterface.(string); ok {
