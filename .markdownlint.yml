@@ -1,5 +1,7 @@
 {
-    "MD013": false,
+    "MD013": {
+      "ignore_code_blocks": true,
+    },
     "MD033": {
       "allowed_elements": ["br"]
     }
