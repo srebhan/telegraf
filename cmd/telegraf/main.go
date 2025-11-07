@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -221,6 +222,13 @@ func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfi
 			pprof.Start(cCtx.String("pprof-addr"))
 		}
 
+		if cCtx.Bool("strict-env-handling") {
+			if cCtx.Bool("non-strict-env-handling") {
+				return errors.New("flags --strict-env-handling and --non-strict-env-handling cannot be used together")
+			}
+			log.Println("W! Flag --strict-env-handling is deprecated since v1.37.0 and will be removed in v1.40.0 as strict handling is the default now!")
+		}
+
 		if err := config.SetPluginLabelSelections(cCtx.StringSlice("select")); err != nil {
 			return err
 		}
@@ -240,7 +248,7 @@ func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfi
 			plugindDir:              cCtx.String("plugin-directory"),
 			password:                cCtx.String("password"),
 			oldEnvBehavior:          cCtx.Bool("old-env-behavior"),
-			nonStrictEnvVars:        !cCtx.Bool("strict-env-handling"),
+			nonStrictEnvVars:        cCtx.Bool("non-strict-env-handling"),
 			printPluginConfigSource: cCtx.Bool("print-plugin-config-source"),
 			test:                    cCtx.Bool("test"),
 			debug:                   cCtx.Bool("debug"),
@@ -324,6 +332,10 @@ func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfi
 				&cli.BoolFlag{
 					Name:  "strict-env-handling",
 					Usage: "enforces strict and secure handling of environment variables; will not work with non-string settings",
+				},
+				&cli.BoolFlag{
+					Name:  "non-strict-env-handling",
+					Usage: "allow unsafe non-strict handling of environment variables to replace non-string settings",
 				},
 				&cli.BoolFlag{
 					Name:  "print-plugin-config-source",
