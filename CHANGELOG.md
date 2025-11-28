@@ -1,6 +1,15 @@
 <!-- markdownlint-disable MD013 MD024 -->
 # Changelog
 
+## Unreleased
+
+### Important Changes
+
+- PR [#17966](https://github.com/influxdata/telegraf/pull/17966) introduced the strict handling of environment variables
+  to prevent security issues as an opt-in flag. To provide security-by-default, PR [#17961](https://github.com/influxdata/telegraf/pull/17961)
+  makes the **strict environment variable handling the default**! In case you need the old behavior you can opt-out
+  using the `--non-strict-env-handling` flag.
+
 ## v1.36.4 [2025-11-17]
 
 ### Bugfixes
