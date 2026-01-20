@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kballard/go-shellquote"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/internal"
@@ -45,7 +47,7 @@ type Exec struct {
 type exitCodeHandlerFunc func([]telegraf.Metric, error, []byte) []telegraf.Metric
 
 type runner interface {
-	run(string) ([]byte, []byte, error)
+	run([]string) ([]byte, []byte, error)
 }
 
 type commandRunner struct {
@@ -136,10 +138,16 @@ func (e *Exec) updateRunners() []string {
 	return commands
 }
 
-func (e *Exec) processCommand(acc telegraf.Accumulator, cmd string) error {
+func (e *Exec) processCommand(acc telegraf.Accumulator, command string) error {
+	// Split the command
+	cmd, err := shellquote.Split(command)
+	if err != nil || len(cmd) == 0 {
+		return fmt.Errorf("parsing command %q failed: %w", command, err)
+	}
+
 	out, errBuf, runErr := e.runner.run(cmd)
 	if !e.IgnoreError && !e.parseDespiteError && runErr != nil {
-		return fmt.Errorf("exec: %w for command %q: %s", runErr, cmd, string(errBuf))
+		return fmt.Errorf("running command %q failed: %w %s", command, runErr, string(errBuf))
 	}
 
 	metrics, err := e.parser.Parse(out)

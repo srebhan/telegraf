@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,16 +44,6 @@ const malformedJSON = `
 {
     "status": "green",
 `
-
-type runnerMock struct {
-	out    []byte
-	errout []byte
-	err    error
-}
-
-func (r runnerMock) run(string) (out, errout []byte, err error) {
-	return r.out, r.errout, r.err
-}
 
 func TestExec(t *testing.T) {
 	// Setup parser
@@ -112,6 +103,70 @@ func TestExecMalformed(t *testing.T) {
 	require.Empty(t, acc.GetTelegrafMetrics())
 }
 
+func TestCommandParsing(t *testing.T) {
+	tests := []struct {
+		name     string
+		command  string
+		expected []string
+	}{
+		{
+			name:     "simple",
+			command:  "ls -ltr /home",
+			expected: []string{"ls", "-ltr", "/home"},
+		},
+		{
+			name: "multiline",
+			command: `
+				powershell -NoLogo -NoProfile -NonInteractive -File 'C:\Script Dir\Script.ps1'
+					-DataFile '\\server\share\Input Dir\DataFile.dat'
+					-OutFile 'C:\Output Dir\report.txt'
+					-MeasurementName 'MyMeasurement1'
+				`,
+			expected: []string{
+				`powershell`,
+				`-NoLogo`,
+				`-NoProfile`,
+				`-NonInteractive`,
+				`-File`,
+				`C:\Script Dir\Script.ps1`,
+				`-DataFile`,
+				`\\server\share\Input Dir\DataFile.dat`,
+				`-OutFile`,
+				`C:\Output Dir\report.txt`,
+				`-MeasurementName`,
+				`MyMeasurement1`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup parser
+			parser := &json.Parser{MetricName: "exec"}
+			require.NoError(t, parser.Init())
+
+			// Prepare the runner instance
+			runner := &runnerMock{}
+
+			// Setup plugin
+			plugin := &Exec{
+				Commands: []string{tt.command},
+				Log:      testutil.Logger{},
+			}
+			plugin.SetParser(parser)
+			require.NoError(t, plugin.Init())
+			plugin.runner = runner
+
+			// Gather the metrics and check the result
+			var acc testutil.Accumulator
+			require.NoError(t, acc.GatherError(plugin.Gather))
+			runner.Lock()
+			defer runner.Unlock()
+			require.Equal(t, tt.expected, runner.command)
+		})
+	}
+}
+
 func TestCommandError(t *testing.T) {
 	// Setup parser
 	parser := &json.Parser{MetricName: "exec"}
@@ -128,7 +183,7 @@ func TestCommandError(t *testing.T) {
 
 	// Gather the metrics and check the result
 	var acc testutil.Accumulator
-	require.ErrorContains(t, acc.GatherError(plugin.Gather), "exit status code 1 for command")
+	require.ErrorContains(t, acc.GatherError(plugin.Gather), "exit status code 1")
 	require.Equal(t, 0, acc.NFields(), "No new points should have been added")
 }
 
@@ -509,4 +564,22 @@ func TestCases(t *testing.T) {
 	}
 	actual := acc.GetTelegrafMetrics()
 	testutil.RequireMetricsEqual(t, expected, actual, options...)
+}
+
+type runnerMock struct {
+	out    []byte
+	errout []byte
+	err    error
+
+	command []string
+	sync.Mutex
+}
+
+func (r *runnerMock) run(cmd []string) (out, errout []byte, err error) {
+	r.Lock()
+	defer r.Unlock()
+	r.command = make([]string, 0, len(cmd))
+	r.command = append(r.command, cmd...)
+
+	return r.out, r.errout, r.err
 }
