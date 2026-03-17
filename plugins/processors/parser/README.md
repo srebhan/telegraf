@@ -88,7 +88,7 @@ metric,status=fault value4=42i 1773239679300000000
 will result in
 
 ```text
-metric,source=foo,status=fault value1=1i,value2=23i,value3=19i,value4=42i,additional=true 1773258782000000000
+metric,status=fault value1=1i,value2=23i,value3=19i,value4=42i 1773258782000000000
 ```
 
 with `drop_original = true`
@@ -96,6 +96,7 @@ with `drop_original = true`
 and
 
 ```text
+metric,source=foo,status=fault value1=1i,value2=23i,value3=19i,value4=42i,additional=true 1773258782000000000
 ```
 
 with `drop_original = false`
