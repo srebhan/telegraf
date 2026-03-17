@@ -1185,7 +1185,7 @@ metric,status=fault value4=42i 1773239679300000000
 
 			// Parse the metric and check the result
 			output := plugin.Apply(input)
-			testutil.RequireMetricsEqual(t, tt.expected, output, testutil.SortMetrics())
+			testutil.RequireMetricsEqual(t, expected, output, testutil.SortMetrics())
 		})
 	}
 }
