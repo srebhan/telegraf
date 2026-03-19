@@ -1414,7 +1414,10 @@ func (c *Config) addOutput(name, source string, table *ast.Table) error {
 		}
 	}
 
-	ro := models.NewRunningOutput(output, outputConfig, c.Agent.MetricBatchSize, c.Agent.MetricBufferLimit)
+	ro, err := models.NewRunningOutput(output, outputConfig, c.Agent.MetricBatchSize, c.Agent.MetricBufferLimit)
+	if err != nil {
+		return err
+	}
 	c.Outputs = append(c.Outputs, ro)
 
 	return nil
