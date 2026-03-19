@@ -55,33 +55,49 @@ memstats are collected using the [Go runtime framework][memstats]
 agent stats collect aggregate stats on all telegraf plugins.
 
 - internal_agent
-  - gather_errors
-  - gather_timeouts
-  - metrics_dropped
-  - metrics_gathered
-  - metrics_written
+  - gather_errors    -- number of failing collection operations
+                        (excluding startup-errors)
+  - gather_timeouts  -- number of times a collection took longer than the
+                        defined interval
+  - metrics_dropped  -- total number of metrics dropped from buffers without
+                        sending
+  - metrics_gathered -- total number of metrics successfully collected by inputs
+  - metrics_rejected -- total number of metrics rejected by service endpoints
+  - metrics_written  -- total number of metrics successfully written by outputs
+  - write_errors     -- total number of failing collection operations
+                        (excluding startup-errors)
 
 internal_gather stats collect aggregate stats on all input plugins
 that are of the same input type. They are tagged with `input=<plugin_name>`
 `version=<telegraf_version>` and `go_version=<go_build_version>`.
 
 - internal_gather
-  - gather_time_ns
-  - metrics_gathered
-  - gather_timeouts
+  - errors            -- number of errors *logged* by the plugin
+  - gather_errors     -- number of failing collection operations
+                         (excluding startup-errors)
+  - gather_time_ns    -- duration of the collection operation
+  - gather_timeouts   -- number of times a collection took longer than the
+                         defined interval
+  - metrics_gathered  -- number of metrics produced by the plugin
+  - startup_errors    -- number of errors while starting the plugin
 
 internal_write stats collect aggregate stats on all output plugins
 that are of the same input type. They are tagged with `output=<plugin_name>`
 and `version=<telegraf_version>`.
 
 - internal_write
-  - buffer_limit
-  - buffer_size
-  - metrics_added
-  - metrics_written
-  - metrics_dropped
-  - metrics_filtered
-  - write_time_ns
+  - buffer_limit      -- size of the metric buffer as configured by the user
+  - buffer_size       -- number of metrics in the buffer
+  - errors            -- number of errors *logged* by the plugin
+  - metrics_added     -- number of metrics added to the plugin for writing
+  - metrics_dropped   -- number of metrics dropped from buffer without sending
+  - metrics_filtered  -- number of metrics not passing the metric-filter
+  - metrics_rejected  -- number of metrics rejected by the service endpoint
+  - metrics_written   -- number of metrics successfully written
+  - startup_errors    -- number of errors while starting the plugin
+  - write_errors      -- number of failing write operations
+                         (excluding startup-errors)
+  - write_time_ns     -- duration of the write operation
 
 internal_<plugin_name> are metrics which are defined on a per-plugin basis, and
 usually contain tags which differentiate each instance of a particular type of

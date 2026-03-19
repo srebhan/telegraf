@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofrs/uuid/v5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
@@ -806,6 +807,7 @@ func TestRunningOutputInternalMetrics(t *testing.T) {
 				"metrics_dropped":  0,
 				"metrics_filtered": 0,
 				"metrics_written":  0,
+				"write_errors":     0,
 				"write_time_ns":    0,
 				"startup_errors":   0,
 			},
@@ -1230,6 +1232,99 @@ func TestRunningOutputWriteBatchPartialSuccessAndLoss(t *testing.T) {
 	require.Zero(t, model.buffer.Len())
 }
 
+func TestRunningOutputStatisticsErrorsCount(t *testing.T) {
+	id, err := uuid.NewV4()
+	require.NoError(t, err)
+	expectedErr := errors.New("an error")
+
+	// Setup a plugin that emits an error during write
+	plugin := &mockOutput{
+		preWriteHook: func([]telegraf.Metric) error { return expectedErr },
+	}
+	model := NewRunningOutput(plugin, &OutputConfig{
+		Name:  "mock",
+		Alias: "TestRunningOutputStatisticsErrorCount",
+		ID:    id.String(),
+	}, 5, 10)
+	require.NoError(t, model.Init())
+	require.NoError(t, model.Connect())
+	defer model.Close()
+
+	// Add some metrics to the buffer
+	for _, mt := range first5 {
+		model.AddMetric(mt)
+	}
+
+	// Get a reference to the plugin's statistics error counter
+	tags := map[string]string{
+		"output": model.Config.Name,
+		"_id":    model.Config.ID,
+		"alias":  model.Config.Alias,
+	}
+	stats := selfstat.Register("write", "errors", tags)
+	require.Zero(t, stats.Get())
+
+	// Log an error in the plugin and verify the error counter increases
+	plugin.Log.Error("an error logging message")
+	require.Equal(t, int64(1), stats.Get())
+
+	// The counter should not increase in case of other log levels
+	plugin.Log.Warn("a warning message")
+	require.Equal(t, int64(1), stats.Get())
+
+	// A failing write should not increase the number of logged errors
+	require.ErrorIs(t, model.WriteBatch(), expectedErr)
+	require.Equal(t, len(first5), model.buffer.Len())
+	require.Equal(t, int64(1), stats.Get())
+}
+
+func TestRunningOutputStatisticsWriteErrorsCount(t *testing.T) {
+	id, err := uuid.NewV4()
+	require.NoError(t, err)
+	expectedErr := errors.New("an error")
+
+	// Setup a plugin that emits an error during write
+	plugin := &mockOutput{
+		preWriteHook: func([]telegraf.Metric) error { return expectedErr },
+	}
+	model := NewRunningOutput(plugin, &OutputConfig{
+		Name:  "mock",
+		Alias: "TestRunningOutputStatisticsErrorCount",
+		ID:    id.String(),
+	}, 5, 10)
+	require.NoError(t, model.Init())
+	require.NoError(t, model.Connect())
+	defer model.Close()
+
+	// Add some metrics to the buffer
+	for _, mt := range first5 {
+		model.AddMetric(mt)
+	}
+
+	// Get a reference to the plugin's statistics error counter
+	require.Zero(t, model.WriteErrors.Get())
+	GlobalWriteErrors.Set(0)
+
+	// Logging an error in the plugin should not increase the count
+	plugin.Log.Error("an error logging message")
+	require.Zero(t, model.WriteErrors.Get())
+
+	// Writing a single metric should produce an error and the errors field
+	// should also increase even if the plugin itself does not log anything
+	require.ErrorIs(t, model.Write(), expectedErr)
+	require.Equal(t, len(first5), model.buffer.Len())
+	require.Equal(t, int64(1), model.WriteErrors.Get())
+
+	// Writing the metrics should produce an error and the errors field should
+	// also increase even if the plugin itself does not log anything
+	require.ErrorIs(t, model.WriteBatch(), expectedErr)
+	require.Equal(t, len(first5), model.buffer.Len())
+	require.Equal(t, int64(2), model.WriteErrors.Get())
+
+	// The global write error count should reflect the plugin's count
+	require.Equal(t, int64(2), GlobalWriteErrors.Get())
+}
+
 // Benchmark adding metrics.
 func BenchmarkRunningOutputAddWrite(b *testing.B) {
 	conf := &OutputConfig{
@@ -1290,6 +1385,7 @@ type mockOutput struct {
 	// the write behavior
 	preWriteHook  func([]telegraf.Metric) error
 	postWriteHook func([]telegraf.Metric) error
+	Log           telegraf.Logger
 }
 
 func (m *mockOutput) Connect() error {

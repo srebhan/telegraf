@@ -33,6 +33,7 @@ type RunningInput struct {
 	MetricsGathered selfstat.Stat
 	GatherTime      selfstat.Stat
 	GatherTimeouts  selfstat.Stat
+	GatherErrors    selfstat.Stat
 	StartupErrors   selfstat.Stat
 }
 
@@ -45,11 +46,10 @@ func NewRunningInput(input telegraf.Input, config *InputConfig) *RunningInput {
 		tags["alias"] = config.Alias
 	}
 
-	inputErrorsRegister := selfstat.Register("gather", "errors", tags)
+	errorLogRegister := selfstat.Register("gather", "errors", tags)
 	logger := logging.New("inputs", config.Name, config.Alias)
 	logger.RegisterErrorCallback(func() {
-		inputErrorsRegister.Incr(1)
-		GlobalGatherErrors.Incr(1)
+		errorLogRegister.Incr(1)
 	})
 	if err := logger.SetLogLevel(config.LogLevel); err != nil {
 		logger.Error(err)
@@ -73,6 +73,11 @@ func NewRunningInput(input telegraf.Input, config *InputConfig) *RunningInput {
 		GatherTimeouts: selfstat.Register(
 			"gather",
 			"gather_timeouts",
+			tags,
+		),
+		GatherErrors: selfstat.Register(
+			"gather",
+			"gather_errors",
 			tags,
 		),
 		StartupErrors: selfstat.Register(
@@ -265,7 +270,13 @@ func (r *RunningInput) Gather(acc telegraf.Accumulator) error {
 	r.gatherEnd = time.Now()
 
 	r.GatherTime.Incr(r.gatherEnd.Sub(r.gatherStart).Nanoseconds())
-	return err
+
+	if err != nil {
+		r.GatherErrors.Incr(1)
+		GlobalGatherErrors.Incr(1)
+		return err
+	}
+	return nil
 }
 
 func (r *RunningInput) SetDefaultTags(tags map[string]string) {
