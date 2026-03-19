@@ -464,9 +464,15 @@ func sliceContains(name string, list []string) bool {
 
 // WalkDirectory collects all toml files that need to be loaded
 func WalkDirectory(path string) ([]string, error) {
+	// Check permissions of the directly specified directories and error
+	// out if those are not readable
+	if _, err := os.ReadDir(path); err != nil {
+		return nil, err
+	}
+
 	var files []string
-	walkfn := func(thispath string, info os.FileInfo, _ error) error {
-		if info == nil {
+	walkfn := func(thispath string, info os.FileInfo, err error) error {
+		if info == nil || errors.Is(err, os.ErrPermission) {
 			log.Printf("W! Telegraf is not permitted to read %s", thispath)
 			return nil
 		}
