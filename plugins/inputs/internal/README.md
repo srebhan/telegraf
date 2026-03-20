@@ -64,7 +64,7 @@ agent stats collect aggregate stats on all telegraf plugins.
   - metrics_gathered -- total number of metrics successfully collected by inputs
   - metrics_rejected -- total number of metrics rejected by service endpoints
   - metrics_written  -- total number of metrics successfully written by outputs
-  - write_errors     -- total number of failing collection operations
+  - write_errors     -- total number of failing write operations
                         (excluding startup-errors)
 
 internal_gather stats collect aggregate stats on all input plugins
