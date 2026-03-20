@@ -2,7 +2,10 @@ package main
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
+	"strconv"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,6 +14,22 @@ import (
 )
 
 func TestGetConfigFiles(t *testing.T) {
+	// Drop priviledges as user root as root can access any file despite
+	// restricted permissions
+	if os.Geteuid() == 0 {
+		u, err := user.Lookup("nobody")
+		if u == nil || err != nil {
+			t.Skip("Skipping as user 'nobody' is not known!")
+		}
+		uid, err := strconv.Atoi(u.Uid)
+		require.NoError(t, err)
+		require.NoError(t, syscall.Setfsuid(uid))
+		defer func() {
+			//nolint:errcheck // We cannot do anything if this call fails
+			syscall.Setfsuid(0)
+		}()
+	}
+
 	// Create a test case where we create a temporary configuration file
 	// structure with one directory having insufficient permissions.
 	root := t.TempDir()
@@ -117,6 +136,22 @@ func TestLoadConfigurationsPermissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Drop priviledges as user root as root can access any file despite
+			// restricted permissions
+			if os.Geteuid() == 0 {
+				u, err := user.Lookup("nobody")
+				if u == nil || err != nil {
+					t.Skip("Skipping as user 'nobody' is not known!")
+				}
+				uid, err := strconv.Atoi(u.Uid)
+				require.NoError(t, err)
+				require.NoError(t, syscall.Setfsuid(uid))
+				defer func() {
+					//nolint:errcheck // We cannot do anything if this call fails
+					syscall.Setfsuid(0)
+				}()
+			}
+
 			// Create a test case where we create a temporary configuration file
 			// structure with one directory having insufficient permissions.
 			root := t.TempDir()
