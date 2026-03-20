@@ -583,7 +583,7 @@ func TestRunningInputStatisticsGatherErrorsCount(t *testing.T) {
 	require.NoError(t, err)
 	expectedErr := errors.New("an error")
 
-	// Setup a plugin that emits an error during write
+	// Setup a plugin that returns an error during gather
 	plugin := &mockInput{
 		gatherReturn: expectedErr,
 	}
