@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 	"testing"
@@ -17,6 +18,9 @@ func TestGetConfigFiles(t *testing.T) {
 	// Drop priviledges as user root as root can access any file despite
 	// restricted permissions
 	if os.Geteuid() == 0 {
+		if runtime.GOOS != "linux" {
+			t.Skip("Dropping priviledges is only supported on Linux")
+		}
 		u, err := user.Lookup("nobody")
 		if u == nil || err != nil {
 			t.Skip("Skipping as user 'nobody' is not known!")
@@ -71,6 +75,10 @@ func TestGetConfigFiles(t *testing.T) {
 }
 
 func TestLoadConfigurationsPermissions(t *testing.T) {
+	if runtime.GOOS != "linux" && os.Geteuid() == 0 {
+		t.Skip("Dropping priviledges is only supported on Linux")
+	}
+
 	tests := []struct {
 		name        string
 		permissions map[string]os.FileMode
@@ -184,8 +192,14 @@ func TestLoadConfigurationsPermissions(t *testing.T) {
 				require.NoError(t, os.Chmod(filepath.Join(root, "telegraf.d"), 0700))
 			}()
 
-			// Setup Telegraf
+			// Define a version to prevent Telegraf startup failure
+			savedVersion := internal.Version
 			internal.Version = "0.0.0"
+			defer func() {
+				internal.Version = savedVersion
+			}()
+
+			// Setup Telegraf
 			agent := &Telegraf{
 				GlobalFlags: GlobalFlags{
 					config:    []string{filepath.Join(root, "telegraf.conf")},
