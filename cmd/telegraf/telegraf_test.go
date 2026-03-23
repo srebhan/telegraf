@@ -17,7 +17,7 @@ import (
 )
 
 func TestGetConfigFiles(t *testing.T) {
-	// Drop priviledges as user root as root can access any file despite
+	// Drop privileges as user root as root can access any file despite
 	// restricted permissions
 	if os.Geteuid() == 0 {
 		if runtime.GOOS != "linux" {
