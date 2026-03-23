@@ -173,7 +173,7 @@ func TestLoadConfigurationsPermissions(t *testing.T) {
 `
 			require.NoError(t, os.WriteFile(filepath.Join(root, "telegraf.conf"), []byte(content), 0600))
 
-			// Create a configuration directory containg two files
+			// Create a configuration directory containing two files
 			require.NoError(t, os.Mkdir(filepath.Join(root, "telegraf.d"), 0700))
 			content = `
 [[inputs.cpu]]
