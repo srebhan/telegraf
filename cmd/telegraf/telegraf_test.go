@@ -78,7 +78,7 @@ func TestGetConfigFiles(t *testing.T) {
 
 func TestLoadConfigurationsPermissions(t *testing.T) {
 	if os.Geteuid() == 0 {
-		t.Skip("Dropping priviledges is only supported on Linux")
+		t.Skip("Dropping privileges is only supported on Linux")
 	}
 
 	tests := []struct {
