@@ -146,7 +146,7 @@ func TestLoadConfigurationsPermissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Drop priviledges as user root as root can access any file despite
+			// Drop privileges as user root as root can access any file despite
 			// restricted permissions
 			if os.Geteuid() == 0 {
 				u, err := user.Lookup("nobody")
