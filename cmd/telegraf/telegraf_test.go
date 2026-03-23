@@ -1,3 +1,5 @@
+//go:build linux
+
 package main
 
 import (
@@ -17,7 +19,7 @@ import (
 func TestGetConfigFiles(t *testing.T) {
 	// Drop priviledges as user root as root can access any file despite
 	// restricted permissions
-	if runtime.GOOS != "linux" && os.Geteuid() == 0 {
+	if os.Geteuid() == 0 {
 		if runtime.GOOS != "linux" {
 			t.Skip("Dropping priviledges is only supported on Linux")
 		}
@@ -75,7 +77,7 @@ func TestGetConfigFiles(t *testing.T) {
 }
 
 func TestLoadConfigurationsPermissions(t *testing.T) {
-	if runtime.GOOS != "linux" && os.Geteuid() == 0 {
+	if os.Geteuid() == 0 {
 		t.Skip("Dropping priviledges is only supported on Linux")
 	}
 
@@ -146,7 +148,7 @@ func TestLoadConfigurationsPermissions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Drop priviledges as user root as root can access any file despite
 			// restricted permissions
-			if runtime.GOOS != "linux" && os.Geteuid() == 0 {
+			if os.Geteuid() == 0 {
 				u, err := user.Lookup("nobody")
 				if u == nil || err != nil {
 					t.Skip("Skipping as user 'nobody' is not known!")
