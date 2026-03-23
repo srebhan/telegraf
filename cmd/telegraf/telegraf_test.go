@@ -21,7 +21,7 @@ func TestGetConfigFiles(t *testing.T) {
 	// restricted permissions
 	if os.Geteuid() == 0 {
 		if runtime.GOOS != "linux" {
-			t.Skip("Dropping priviledges is only supported on Linux")
+			t.Skip("Dropping privileges is only supported on Linux")
 		}
 		u, err := user.Lookup("nobody")
 		if u == nil || err != nil {
