@@ -169,7 +169,7 @@ func (p *Postgresql) Connect() error {
 
 	// Make sure we are connected
 	if err := db.Ping(p.dbContext); err != nil {
-		p.Close()
+		db.Close()
 		p.dbContextCancel()
 		return &internal.StartupError{
 			Err:   err,
