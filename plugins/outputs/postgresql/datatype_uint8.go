@@ -187,7 +187,7 @@ func (encodePlanUint8CodecTextUint64) Encode(value any, buf []byte) (newBuf []by
 type encodePlanUint8CodecBinaryUint64Valuer struct{}
 
 func (encodePlanUint8CodecBinaryUint64Valuer) Encode(value any, buf []byte) (newBuf []byte, err error) {
-	n, err := value.(pgtype.Uint64Valuer).Uint64Value()
+	n, err := value.(uint64Valuer).Uint64Value()
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (encodePlanUint8CodecBinaryUint64Valuer) Encode(value any, buf []byte) (new
 type encodePlanUint8CodecTextUint64Valuer struct{}
 
 func (encodePlanUint8CodecTextUint64Valuer) Encode(value any, buf []byte) (newBuf []byte, err error) {
-	n, err := value.(pgtype.Uint64Valuer).Uint64Value()
+	n, err := value.(uint64Valuer).Uint64Value()
 	if err != nil {
 		return nil, err
 	}
