@@ -1251,11 +1251,12 @@ func TestRunningOutputStatisticsErrorsCount(t *testing.T) {
 	plugin := &mockOutput{
 		preWriteHook: func([]telegraf.Metric) error { return expectedErr },
 	}
-	model := NewRunningOutput(plugin, &OutputConfig{
+	model, err := NewRunningOutput(plugin, &OutputConfig{
 		Name:  "mock",
 		Alias: "TestRunningOutputStatisticsErrorCount",
 		ID:    id.String(),
 	}, 5, 10)
+	require.NoError(t, err)
 	require.NoError(t, model.Init())
 	require.NoError(t, model.Connect())
 	defer model.Close()
@@ -1297,11 +1298,12 @@ func TestRunningOutputStatisticsWriteErrorsCount(t *testing.T) {
 	plugin := &mockOutput{
 		preWriteHook: func([]telegraf.Metric) error { return expectedErr },
 	}
-	model := NewRunningOutput(plugin, &OutputConfig{
+	model, err := NewRunningOutput(plugin, &OutputConfig{
 		Name:  "mock",
 		Alias: "TestRunningOutputStatisticsErrorCount",
 		ID:    id.String(),
 	}, 5, 10)
+	require.NoError(t, err)
 	require.NoError(t, model.Init())
 	require.NoError(t, model.Connect())
 	defer model.Close()
