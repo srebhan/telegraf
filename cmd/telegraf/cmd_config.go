@@ -49,7 +49,10 @@ func getConfigCommands(configHandlingFlags []cli.Flag, outputBuffer io.Writer) [
 
 		> telegraf config check --config mysettings.conf
 		`,
-					Flags: configHandlingFlags,
+					Flags: append(configHandlingFlags, &cli.BoolFlag{
+						Name:  "quiet",
+						Usage: "run in quiet mode",
+					}),
 					Action: func(cCtx *cli.Context) error {
 						// Setup logging
 						logConfig := &logger.Config{Debug: cCtx.Bool("debug")}
