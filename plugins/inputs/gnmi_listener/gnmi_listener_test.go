@@ -209,8 +209,7 @@ type device interface {
 }
 
 func newDevice(addr, protocol string, cfg *deviceConfig) (device, error) {
-	switch protocol {
-	case "nokia":
+	if protocol == "nokia" {
 		tlscfg, err := cfg.ClientConfig.TLSConfig()
 		if err != nil {
 			return nil, fmt.Errorf("creating client TLS failed: %w", err)
@@ -250,7 +249,7 @@ func (d *nokiaDevice) send(ctx context.Context, msg *gnmi.SubscribeResponse) (*g
 
 	// Create a nokia dial-out client
 	client := nokia.NewDialoutTelemetryClient(conn)
-	sctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	sctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 	stream, err := client.Publish(sctx, grpc.WaitForReady(false))
 	if err != nil {
