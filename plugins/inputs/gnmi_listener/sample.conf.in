@@ -8,3 +8,4 @@
   # protocol = "nokia"
 
 {{template "/plugins/common/gnmi/handler.conf"}}
+{{template "/plugins/common/tls/server.conf"}}

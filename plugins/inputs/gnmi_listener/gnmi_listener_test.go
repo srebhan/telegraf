@@ -2,6 +2,7 @@ package gnmilistener
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,17 +13,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BurntSushi/toml"
+	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
+	common_tls "github.com/influxdata/telegraf/plugins/common/tls"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/influxdata/telegraf/plugins/inputs/gnmi_listener/nokia"
 	"github.com/influxdata/telegraf/plugins/parsers/influx"
 	"github.com/influxdata/telegraf/testutil"
-	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestCases(t *testing.T) {
@@ -47,6 +52,7 @@ func TestCases(t *testing.T) {
 			inputFilename := filepath.Join(testcasePath, "responses.json")
 			expectedFilename := filepath.Join(testcasePath, "expected.out")
 			expectedErrorFilename := filepath.Join(testcasePath, "expected.err")
+			clientConfigFilename := filepath.Join(testcasePath, "client.conf")
 
 			// Load the input data
 			buf, err := os.ReadFile(inputFilename)
@@ -81,6 +87,14 @@ func TestCases(t *testing.T) {
 				require.NotEmpty(t, expectedErrors)
 			}
 
+			// Load the configuration for the client simulating the device
+			var clientCfg deviceConfig
+			if _, err := os.Stat(clientConfigFilename); err == nil {
+				buf, err := os.ReadFile(clientConfigFilename)
+				require.NoError(t, err)
+				require.NoError(t, toml.Unmarshal(buf, &clientCfg))
+			}
+
 			// Configure and setup the plugin
 			cfg := config.NewConfig()
 			require.NoError(t, cfg.LoadConfig(configFilename))
@@ -97,7 +111,7 @@ func TestCases(t *testing.T) {
 			defer plugin.Stop()
 
 			// Setup a client to mimic the device
-			dev, err := newDevice(plugin.server.Address(), plugin.Protocol)
+			dev, err := newDevice(plugin.server.Address(), plugin.Protocol, &clientCfg)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(t.Context())
@@ -140,6 +154,12 @@ func TestCases(t *testing.T) {
 	}
 }
 
+// Internal functionality
+
+type deviceConfig struct {
+	common_tls.ClientConfig
+}
+
 type device interface {
 	start(context.Context) error
 	send(*gnmi.SubscribeResponse)
@@ -147,19 +167,25 @@ type device interface {
 	responses() []*gnmi.SubscribeRequest
 }
 
-func newDevice(addr, protocol string) (device, error) {
+func newDevice(addr, protocol string, cfg *deviceConfig) (device, error) {
 	switch protocol {
 	case "nokia":
+		tlscfg, err := cfg.ClientConfig.TLSConfig()
+		if err != nil {
+			return nil, fmt.Errorf("creating client TLS failed: %w", err)
+		}
 		return &nokiaDevice{
-			addr: addr,
-			msg:  make(chan *gnmi.SubscribeResponse, 1),
+			addr:   addr,
+			msg:    make(chan *gnmi.SubscribeResponse, 1),
+			tlscfg: tlscfg,
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown protocol %q", protocol)
 }
 
 type nokiaDevice struct {
-	addr string
+	addr   string
+	tlscfg *tls.Config
 
 	msg   chan *gnmi.SubscribeResponse
 	errs  []error
@@ -168,8 +194,17 @@ type nokiaDevice struct {
 }
 
 func (d *nokiaDevice) start(ctx context.Context) error {
+	var creds credentials.TransportCredentials
+
+	// Setup the connection credentials
+	if d.tlscfg == nil {
+		creds = insecure.NewCredentials()
+	} else {
+		creds = credentials.NewTLS(d.tlscfg)
+	}
+
 	// Connect to the server
-	conn, err := grpc.NewClient(d.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(d.addr, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return fmt.Errorf("dialing server %q failed: %w", d.addr, err)
 	}
@@ -216,7 +251,6 @@ func (d *nokiaDevice) start(ctx context.Context) error {
 				d.Unlock()
 				continue
 			}
-			fmt.Printf("got reply: %+v (%T)\n", resp, resp)
 
 			d.Lock()
 			d.resps = append(d.resps, resp)
@@ -242,94 +276,96 @@ func (d *nokiaDevice) responses() []*gnmi.SubscribeRequest {
 }
 
 /*
-package main
+   package main
 
-import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
-	"fmt"
-	"math/big"
-	"net"
-	"time"
+   import (
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials"
-)
+   	"crypto/ecdsa"
+   	"crypto/elliptic"
+   	"crypto/rand"
+   	"crypto/tls"
+   	"crypto/x509"
+   	"encoding/pem"
+   	"fmt"
+   	"math/big"
+   	"net"
+   	"time"
 
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
+   	"google.golang.org/grpc"
+   	"google.golang.org/grpc/connectivity"
+   	"google.golang.org/grpc/credentials"
 
-func main() {
-	lis, err := net.Listen("tcp", "127.0.0.1:18080")
-	check(err)
+   )
 
-	certPem, privPem := GenerateCertAndKeys()
+   	func check(err error) {
+   		if err != nil {
+   			panic(err)
+   		}
+   	}
 
-	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM(certPem)
+   	func main() {
+   		lis, err := net.Listen("tcp", "127.0.0.1:18080")
+   		check(err)
 
-	pair, err := tls.X509KeyPair(certPem, privPem)
-	tc := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{pair},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    pool,
-		RootCAs:      pool,
-	})
+   		certPem, privPem := GenerateCertAndKeys()
 
-	server := grpc.NewServer(grpc.Creds(tc))
+   		pool := x509.NewCertPool()
+   		pool.AppendCertsFromPEM(certPem)
 
-	go server.Serve(lis)
+   		pair, err := tls.X509KeyPair(certPem, privPem)
+   		tc := credentials.NewTLS(&tls.Config{
+   			Certificates: []tls.Certificate{pair},
+   			ClientAuth:   tls.RequireAndVerifyClientCert,
+   			ClientCAs:    pool,
+   			RootCAs:      pool,
+   		})
 
-	conn, err := grpc.Dial("127.0.0.1:18080", grpc.WithTransportCredentials(tc))
-	check(err)
+   		server := grpc.NewServer(grpc.Creds(tc))
 
-	defer func() {
-		err = conn.Close()
-		check(err)
-		server.Stop()
-	}()
+   		go server.Serve(lis)
 
-	for {
-		switch state := conn.GetState(); state {
-		case connectivity.Ready:
-			fmt.Printf("Connection established!\n")
-			return
-		case connectivity.TransientFailure:
-			fmt.Printf("Failed to connect...%s\n", state)
-			return
-		default:
-			fmt.Printf("STATE = %s\n", state)
-		}
-		time.Sleep(time.Second)
-	}
-}
+   		conn, err := grpc.Dial("127.0.0.1:18080", grpc.WithTransportCredentials(tc))
+   		check(err)
 
-func GenerateCertAndKeys() (c, k []byte) {
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	check(err)
-	privDer, err := x509.MarshalPKCS8PrivateKey(priv)
-	check(err)
-	privPem := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDer})
+   		defer func() {
+   			err = conn.Close()
+   			check(err)
+   			server.Stop()
+   		}()
 
-	template := &x509.Certificate{
-		SerialNumber: new(big.Int),
-		NotAfter:     time.Now().Add(time.Hour),
-		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
-	}
+   		for {
+   			switch state := conn.GetState(); state {
+   			case connectivity.Ready:
+   				fmt.Printf("Connection established!\n")
+   				return
+   			case connectivity.TransientFailure:
+   				fmt.Printf("Failed to connect...%s\n", state)
+   				return
+   			default:
+   				fmt.Printf("STATE = %s\n", state)
+   			}
+   			time.Sleep(time.Second)
+   		}
+   	}
 
-	certDer, err := x509.CreateCertificate(rand.Reader, template, template, priv.Public(), priv)
-	check(err)
-	certPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDer})
-	check(err)
+   	func GenerateCertAndKeys() (c, k []byte) {
+   		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+   		check(err)
+   		privDer, err := x509.MarshalPKCS8PrivateKey(priv)
+   		check(err)
+   		privPem := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDer})
 
-	return certPem, privPem
-}
+   		template := &x509.Certificate{
+   			SerialNumber: new(big.Int),
+   			NotAfter:     time.Now().Add(time.Hour),
+   			IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+   		}
+
+   		certDer, err := x509.CreateCertificate(rand.Reader, template, template, priv.Public(), priv)
+   		check(err)
+   		certPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDer})
+   		check(err)
+
+   		return certPem, privPem
+   	}
 */

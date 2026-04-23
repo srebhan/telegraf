@@ -7,6 +7,14 @@ The proto-buffer file in this directory is taken from the
 [Nokia Github repository][nokia_repo]. The protocol-buffer file is subject to
 the license below.
 
+To update protocol-buffer file or to regenerate the Go code please run
+
+```sh
+go generate
+```
+
+to update the Go code.
+
 [nokia_repo]: https://github.com/nokia/7x50_protobufs
 
 ## License

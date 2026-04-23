@@ -1,4 +1,4 @@
-//go:generate protoc --proto_path=../gnmi:. --go_out=. --go-grpc_out=. --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative nokia-dialout-telemetry.proto
+//go:generate protoc --proto_path=../gnmi_protos:. --go_out=. --go-grpc_out=. --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative nokia-dialout-telemetry.proto
 package nokia
 
 import (
