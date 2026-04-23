@@ -97,15 +97,15 @@ plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 ## Metrics
 
-Each configured subscription will emit a different measurement. Each leaf in a
+Each GNMI message will emit a different measurement. Leaf entries in a
 GNMI SubscribeResponse Update message will produce a field reading in the
 measurement. GNMI PathElement keys for leaves will attach tags to the field(s).
 
 ## Example Output
 
 ```text
-ifcounters,path=openconfig-interfaces:/interfaces/interface/state/counters,host=linux,name=MgmtEth0/RP0/CPU0/0,source=10.49.234.115,descr/description=Foo in-multicast-pkts=0i,out-multicast-pkts=0i,out-errors=0i,out-discards=0i,in-broadcast-pkts=0i,out-broadcast-pkts=0i,in-discards=0i,in-unknown-protos=0i,in-errors=0i,out-unicast-pkts=0i,in-octets=0i,out-octets=0i,last-clear="2019-05-22T16:53:21Z",in-unicast-pkts=0i 1559145777425000000
-ifcounters,path=openconfig-interfaces:/interfaces/interface/state/counters,host=linux,name=GigabitEthernet0/0/0/0,source=10.49.234.115,descr/description=Bar out-multicast-pkts=0i,out-broadcast-pkts=0i,in-errors=0i,out-errors=0i,in-discards=0i,out-octets=0i,in-unknown-protos=0i,in-unicast-pkts=0i,in-octets=0i,in-multicast-pkts=0i,in-broadcast-pkts=0i,last-clear="2019-05-22T16:54:50Z",out-unicast-pkts=0i,out-discards=0i 1559145777425000000
+gnmi,path=openconfig-interfaces:/interfaces/interface/state/counters,host=linux,name=MgmtEth0/RP0/CPU0/0,source=10.49.234.115,descr/description=Foo in-multicast-pkts=0i,out-multicast-pkts=0i,out-errors=0i,out-discards=0i,in-broadcast-pkts=0i,out-broadcast-pkts=0i,in-discards=0i,in-unknown-protos=0i,in-errors=0i,out-unicast-pkts=0i,in-octets=0i,out-octets=0i,last-clear="2019-05-22T16:53:21Z",in-unicast-pkts=0i 1559145777425000000
+gnmi,path=openconfig-interfaces:/interfaces/interface/state/counters,host=linux,name=GigabitEthernet0/0/0/0,source=10.49.234.115,descr/description=Bar out-multicast-pkts=0i,out-broadcast-pkts=0i,in-errors=0i,out-errors=0i,in-discards=0i,out-octets=0i,in-unknown-protos=0i,in-unicast-pkts=0i,in-octets=0i,in-multicast-pkts=0i,in-broadcast-pkts=0i,last-clear="2019-05-22T16:54:50Z",out-unicast-pkts=0i,out-discards=0i 1559145777425000000
 ```
 
 ## Troubleshooting
@@ -120,20 +120,3 @@ to `subscription` to use the subscription path as `path` tag.
 Other devices might omit the prefix in updates altogether. Here setting
 `path_guessing_strategy` to `common path` can help to infer the `path` tag by
 using the part of the path that is common to all values in the update.
-
-<!--
-### TLS handshake failure
-
-When receiving an error like
-
-```text
-2024-01-01T00:00:00Z E! [inputs.gnmi] Error in plugin: failed to setup subscription: rpc error: code = Unavailable desc = connection error: desc = "transport: authentication handshake failed: remote error: tls: handshake failure"
-```
-
-this might be due to insecure TLS configurations in the GNMI server. Please
-check the minimum TLS version provided by the server as well as the cipher suite
-used. You might want to use the `tls_min_version` or `tls_cipher_suites` setting
-respectively to work-around the issue. Please be careful to not undermine the
-security of the connection between the plugin and the device!
-
--->
