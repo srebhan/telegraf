@@ -35,10 +35,10 @@ type HandlerConfig struct {
 	TrimSlash                     bool     `toml:"trim_field_names"`
 	TagPathPrefix                 bool     `toml:"prefix_tag_key_with_path"`
 	GuessPathStrategy             string   `toml:"path_guessing_strategy"`
-	EnforceFirstNamespaceAsOrigin bool     `toml:"enforce_first_namespace_as_origin"`
 	VendorExt                     []string `toml:"vendor_specific"`
 	YangModelPaths                []string `toml:"yang_model_paths"`
 	DefaultName                   string   `toml:"-"`
+	EnforceFirstNamespaceAsOrigin bool     `toml:"-"`
 }
 
 type Handler struct {

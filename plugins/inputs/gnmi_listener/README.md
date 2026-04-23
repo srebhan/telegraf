@@ -61,11 +61,6 @@ plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ##   subscription -- use the subscription path
   # path_guessing_strategy = "none"
 
-  ## Enforces the namespace of the first element as origin for aliases and
-  ## response paths, required for backward compatibility.
-  ## NOTE: Set to 'false' if possible but be aware that this might change the path tag!
-  # enforce_first_namespace_as_origin = true
-
   ## Vendor specific options
   ## This defines what vendor specific options to load.
   ## * Juniper Header Extension (juniper_header): some sensors are directly managed by
@@ -79,8 +74,6 @@ plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## no models are specified.
   # yang_model_paths = []
 
-
-  ## TLS settings
   ## Used for TLS server certificate authentication
   # tls_cert = "/path/to/certfile"
   ## Used for TLS server certificate authentication
