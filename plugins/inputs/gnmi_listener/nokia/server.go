@@ -19,7 +19,6 @@ import (
 var _ DialoutTelemetryServer = &server{}
 
 type server struct {
-	addr    string
 	handler common_gnmi.HandlerFunc
 	log     telegraf.Logger
 
@@ -36,20 +35,13 @@ func New(handler common_gnmi.HandlerFunc, log telegraf.Logger) *server {
 }
 
 // Start creates and starts the GRPC server
-func (s *server) Start(addr string, opts ...grpc.ServerOption) error {
-	// Create a listener for the server
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("listening on %q failed: %w", addr, err)
-	}
-	s.addr = listener.Addr().String()
-
+func (s *server) Start(listener net.Listener, opts ...grpc.ServerOption) error {
 	// Create the GRPC server and start it
 	s.server = grpc.NewServer(opts...)
 	RegisterDialoutTelemetryServer(s.server, s)
 	go func() {
 		if err := s.server.Serve(listener); err != nil {
-			s.log.Errorf("GRPC server on %q got error: %v", addr, err)
+			s.log.Errorf("GRPC server on %q got error: %v", listener.Addr(), err)
 		}
 	}()
 
@@ -60,11 +52,6 @@ func (s *server) Stop() {
 	if s.server != nil {
 		s.server.Stop()
 	}
-}
-
-// Address returns the listening address of the GRPC server
-func (s *server) Address() string {
-	return s.addr
 }
 
 // Publish implements the Nokia dial-out GRPC interface

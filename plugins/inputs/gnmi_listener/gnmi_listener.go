@@ -5,6 +5,7 @@ package gnmilistener
 import (
 	_ "embed"
 	"fmt"
+	"net"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -20,9 +21,8 @@ import (
 var sampleConfig string
 
 type impl interface {
-	Start(addr string, opts ...grpc.ServerOption) error
+	Start(listener net.Listener, opts ...grpc.ServerOption) error
 	Stop()
-	Address() string
 }
 
 type GNMIListener struct {
@@ -35,6 +35,7 @@ type GNMIListener struct {
 	options []grpc.ServerOption
 	handler *common_gnmi.Handler
 	server  impl
+	addr    string
 }
 
 func (*GNMIListener) SampleConfig() string {
@@ -64,6 +65,10 @@ func (g *GNMIListener) Init() error {
 		g.options = append(g.options, grpc.Creds(credentials.NewTLS(tlsCfg)))
 	}
 
+	if g.Log.Level().Includes(telegraf.Trace) {
+		g.options = append(g.options, grpc.InTapHandle(g.logCalls))
+	}
+
 	return nil
 }
 
@@ -77,6 +82,7 @@ func (g *GNMIListener) Start(acc telegraf.Accumulator) error {
 	g.handler = h
 
 	// Setup the server
+	// Create the protocol implementation
 	switch g.Protocol {
 	case "nokia":
 		g.server = nokia.New(g.handler.Handle, g.Log)
@@ -84,8 +90,15 @@ func (g *GNMIListener) Start(acc telegraf.Accumulator) error {
 		return fmt.Errorf("invalid 'protocol' %q", g.Protocol)
 	}
 
+	// Create a listener or wrap it for debugging
+	listener, err := net.Listen("tcp", g.Address)
+	if err != nil {
+		return fmt.Errorf("listening on %q failed: %w", g.Address, err)
+	}
+	g.addr = listener.Addr().String()
+
 	// Start the server
-	return g.server.Start(g.Address, g.options...)
+	return g.server.Start(listener, g.options...)
 }
 
 func (g *GNMIListener) Stop() {

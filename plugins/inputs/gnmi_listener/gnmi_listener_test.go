@@ -62,7 +62,7 @@ func TestMutalTLSFail(t *testing.T) {
 		TLSCert: filepath.Join(tmpDir, "client.pem"),
 		TLSKey:  filepath.Join(tmpDir, "client.key"),
 	}
-	dev, err := newDevice(plugin.server.Address(), plugin.Protocol, &deviceConfig{ClientConfig: clientFailTLS})
+	dev, err := newDevice(plugin.addr, plugin.Protocol, &deviceConfig{ClientConfig: clientFailTLS})
 	require.NoError(t, err)
 
 	// Send the data
@@ -165,7 +165,7 @@ func TestCases(t *testing.T) {
 			defer plugin.Stop()
 
 			// Setup a client to mimic the device
-			dev, err := newDevice(plugin.server.Address(), plugin.Protocol, &clientCfg)
+			dev, err := newDevice(plugin.addr, plugin.Protocol, &clientCfg)
 			require.NoError(t, err)
 
 			// Send the data
@@ -272,7 +272,7 @@ func (d *nokiaDevice) send(ctx context.Context, msg *gnmi.SubscribeResponse) (*g
 		}
 		return nil, err
 	}
-
+	time.Sleep(time.Second)
 	return resp, nil
 }
 
