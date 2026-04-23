@@ -79,7 +79,6 @@ func (h *Handler) AddTagSubscriptions(subs []TagSubscription) {
 	h.tagStore = newTagStore(subs)
 }
 
-// SubscribeGNMI and extract telemetry data
 func (h *Handler) Handle(source string, response *gnmi.SubscribeResponse) error {
 	if h.log.Level().Includes(telegraf.Trace) {
 		buf, err := protojson.Marshal(response)
@@ -110,7 +109,11 @@ func (h *Handler) Handle(source string, response *gnmi.SubscribeResponse) error 
 	return nil
 }
 
-func (h *Handler) handleUpdateMetadata(source string, notification *gnmi.Notification, extension []*gnmi_ext.Extension) (time.Time, map[string]string, *pathInfo) {
+func (h *Handler) handleUpdateMetadata(
+	source string,
+	notification *gnmi.Notification,
+	extension []*gnmi_ext.Extension,
+) (time.Time, map[string]string, *pathInfo) {
 	timestamp := time.Unix(0, notification.Timestamp)
 
 	// Extract tags from potential extension in the update notification

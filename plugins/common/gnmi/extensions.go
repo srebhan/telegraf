@@ -1,6 +1,6 @@
 package gnmi
 
-// Currently supported GNMI Extensions
+// SupportedExtensions contains the list of currently supported GNMI Extensions
 var SupportedExtensions = []string{"juniper_header"}
 
 const eidJuniperTelemetryHeader = 1

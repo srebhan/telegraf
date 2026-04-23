@@ -27,6 +27,7 @@ type server struct {
 	UnimplementedDialoutTelemetryServer
 }
 
+// New creates a new GRPC server for Nokia devices
 func New(handler common_gnmi.HandlerFunc, log telegraf.Logger) *server {
 	return &server{
 		handler: handler,
@@ -34,6 +35,7 @@ func New(handler common_gnmi.HandlerFunc, log telegraf.Logger) *server {
 	}
 }
 
+// Start creates and starts the GRPC server
 func (s *server) Start(addr string, opts ...grpc.ServerOption) error {
 	// Create a listener for the server
 	listener, err := net.Listen("tcp", addr)
@@ -47,7 +49,7 @@ func (s *server) Start(addr string, opts ...grpc.ServerOption) error {
 	RegisterDialoutTelemetryServer(s.server, s)
 	go func() {
 		if err := s.server.Serve(listener); err != nil {
-			s.log.Errorf("GRPC server on %q got error: %w", addr, err)
+			s.log.Errorf("GRPC server on %q got error: %v", addr, err)
 		}
 	}()
 
@@ -60,6 +62,7 @@ func (s *server) Stop() {
 	}
 }
 
+// Address returns the listening address of the GRPC server
 func (s *server) Address() string {
 	return s.addr
 }
@@ -96,10 +99,13 @@ func (s *server) Publish(srv grpc.BidiStreamingServer[gnmi.SubscribeResponse, gn
 		// Call the handler
 		if err := s.handler(source, response); err != nil {
 			s.log.Errorf("Handling GNMI message failed: %v", err)
+			continue
 		}
 
 		// Send an empty response
-		srv.Send(&gnmi.SubscribeRequest{})
+		if err := srv.Send(&gnmi.SubscribeRequest{}); err != nil {
+			s.log.Errorf("Sending GNMI response failed: %v", err)
+		}
 	}
 
 	return nil
