@@ -95,6 +95,19 @@ plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
   # tls_allowed_dns_names = []
 ```
 
+### Supported Nokia devices
+
+The `nokia` protocol supports Nokia SR OS devices with dial-out telemetry such
+as the following platforms:
+
+- 7250 Interconnect Router (IXR)
+- 7450 Ethernet Service Switch (ESS)
+- 7750 Service Router (SR)
+- 7950 Extensible Routing System (XRS)
+- Virtualized Service Router (VSR)
+
+See [server implementation](nokia/README.md) for details.
+
 ## Metrics
 
 Each GNMI message will emit a different measurement. Leaf entries in a
