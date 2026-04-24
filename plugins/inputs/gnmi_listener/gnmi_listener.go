@@ -20,9 +20,8 @@ import (
 //go:embed sample.conf
 var sampleConfig string
 
-type impl interface {
-	Start(listener net.Listener, opts ...grpc.ServerOption) error
-	Stop()
+type serverImplementation interface {
+	Register(*grpc.Server)
 }
 
 type GNMIListener struct {
@@ -33,8 +32,8 @@ type GNMIListener struct {
 	common_tls.ServerConfig
 
 	options []grpc.ServerOption
+	server  *grpc.Server
 	handler *common_gnmi.Handler
-	server  impl
 	addr    string
 }
 
@@ -81,11 +80,11 @@ func (g *GNMIListener) Start(acc telegraf.Accumulator) error {
 	h.DefaultName = "gnmi"
 	g.handler = h
 
-	// Setup the server
 	// Create the protocol implementation
+	var impl serverImplementation
 	switch g.Protocol {
 	case "nokia":
-		g.server = nokia.New(g.handler.Handle, g.Log)
+		impl = nokia.New(g.handler.Handle, g.Log)
 	default:
 		return fmt.Errorf("invalid 'protocol' %q", g.Protocol)
 	}
@@ -98,12 +97,20 @@ func (g *GNMIListener) Start(acc telegraf.Accumulator) error {
 	g.addr = listener.Addr().String()
 
 	// Start the server
-	return g.server.Start(listener, g.options...)
+	g.server = grpc.NewServer(g.options...)
+	impl.Register(g.server)
+	go func() {
+		if err := g.server.Serve(listener); err != nil {
+			g.Log.Errorf("Stopping GRPC server on %q due to error: %v", g.addr, err)
+		}
+	}()
+
+	return nil
 }
 
 func (g *GNMIListener) Stop() {
 	if g.server != nil {
-		g.server.Stop()
+		g.server.GracefulStop()
 	}
 }
 

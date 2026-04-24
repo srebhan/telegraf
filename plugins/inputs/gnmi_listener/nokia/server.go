@@ -22,7 +22,6 @@ type server struct {
 	handler common_gnmi.HandlerFunc
 	log     telegraf.Logger
 
-	server *grpc.Server
 	UnimplementedDialoutTelemetryServer
 }
 
@@ -34,24 +33,9 @@ func New(handler common_gnmi.HandlerFunc, log telegraf.Logger) *server {
 	}
 }
 
-// Start creates and starts the GRPC server
-func (s *server) Start(listener net.Listener, opts ...grpc.ServerOption) error {
-	// Create the GRPC server and start it
-	s.server = grpc.NewServer(opts...)
-	RegisterDialoutTelemetryServer(s.server, s)
-	go func() {
-		if err := s.server.Serve(listener); err != nil {
-			s.log.Errorf("GRPC server on %q got error: %v", listener.Addr(), err)
-		}
-	}()
-
-	return nil
-}
-
-func (s *server) Stop() {
-	if s.server != nil {
-		s.server.Stop()
-	}
+// Register the vendor specific GRPC methods to the server
+func (s *server) Register(server *grpc.Server) {
+	RegisterDialoutTelemetryServer(server, s)
 }
 
 // Publish implements the Nokia dial-out GRPC interface

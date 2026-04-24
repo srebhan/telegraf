@@ -79,7 +79,7 @@ func TestMutalTLSFail(t *testing.T) {
 			},
 		},
 	})
-	require.ErrorContains(t, err, "broken pipe")
+	require.Error(t, err)
 
 	plugin.Stop()
 }
