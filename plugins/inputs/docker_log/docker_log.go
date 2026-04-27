@@ -123,6 +123,17 @@ func (*DockerLogs) Start(telegraf.Accumulator) error {
 	return nil
 }
 
+func (d *DockerLogs) Stop() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, cancel := range d.containerList {
+		cancel()
+	}
+	d.wg.Wait()
+
+	d.containerList = make(map[string]context.CancelFunc)
+}
+
 func (d *DockerLogs) GetState() interface{} {
 	d.lastRecordMtx.Lock()
 	recordOffsets := make(map[string]time.Time, len(d.lastRecord))
@@ -204,19 +215,6 @@ func (d *DockerLogs) Gather(acc telegraf.Accumulator) error {
 		}(cntnr)
 	}
 	return nil
-}
-
-func (d *DockerLogs) Stop() {
-	d.cancelTails()
-	d.wg.Wait()
-}
-
-func (d *DockerLogs) cancelTails() {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	for _, cancel := range d.containerList {
-		cancel()
-	}
 }
 
 func (d *DockerLogs) hasTTY(ctx context.Context, cntnr container.Summary) (bool, error) {
