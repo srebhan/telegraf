@@ -1,7 +1,6 @@
 package docker_log
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -123,7 +122,6 @@ func TestGather(t *testing.T) {
 				IncludeSourceTag: true,
 				ClientConfig:     common_tls.ClientConfig{InsecureSkipVerify: true}, // Required as the test server has only a self-signed cert
 				Timeout:          config.Duration(time.Second * 5),
-				containerList:    make(map[string]context.CancelFunc),
 			}
 			require.NoError(t, plugin.Init())
 
