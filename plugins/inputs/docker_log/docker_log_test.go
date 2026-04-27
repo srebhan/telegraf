@@ -11,7 +11,6 @@ import (
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/plugins/common/docker/mock"
-	common_tls "github.com/influxdata/telegraf/plugins/common/tls"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -120,7 +119,6 @@ func TestGather(t *testing.T) {
 			plugin := &DockerLogs{
 				Endpoint:         addr,
 				IncludeSourceTag: true,
-				ClientConfig:     common_tls.ClientConfig{InsecureSkipVerify: true}, // Required as the test server has only a self-signed cert
 				Timeout:          config.Duration(time.Second * 5),
 			}
 			require.NoError(t, plugin.Init())

@@ -69,18 +69,19 @@ func (d *DockerLogs) Init() error {
 		}
 		d.client = c
 	default:
+		options := []client.Opt{
+			client.WithUserAgent("engine-api-cli-1.0"),
+			client.WithHost(d.Endpoint),
+		}
 		tlsConfig, err := d.ClientConfig.TLSConfig()
 		if err != nil {
 			return fmt.Errorf("creating TLS configuration failed: %w", err)
 		}
-		transport := &http.Transport{
-			TLSClientConfig: tlsConfig,
+		if tlsConfig != nil {
+			transport := &http.Transport{TLSClientConfig: tlsConfig}
+			options = append(options, client.WithHTTPClient(&http.Client{Transport: transport}))
 		}
-		c, err := client.New(
-			client.WithHTTPHeaders(map[string]string{"User-Agent": "engine-api-cli-1.0"}),
-			client.WithHTTPClient(&http.Client{Transport: transport}),
-			client.WithHost(d.Endpoint),
-		)
+		c, err := client.New(options...)
 		if err != nil {
 			return fmt.Errorf("creating client failed: %w", err)
 		}
