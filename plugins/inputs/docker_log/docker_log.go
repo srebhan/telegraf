@@ -94,7 +94,7 @@ func (d *DockerLogs) Init() error {
 	}
 	d.labelFilter = labelFilter
 
-	// Create container filer
+	// Create container filter
 	containerFilter, err := filter.NewIncludeExcludeFilter(d.ContainerInclude, d.ContainerExclude)
 	if err != nil {
 		return fmt.Errorf("creating container filter failed: %w", err)
