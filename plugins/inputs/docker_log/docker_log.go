@@ -113,9 +113,7 @@ func (d *DockerLogs) Init() error {
 
 	// Allocate maps
 	d.lastRecord = make(map[string]time.Time)
-	d.mu.Lock()
 	d.containerList = make(map[string]context.CancelFunc)
-	d.mu.Unlock()
 
 	return nil
 }
