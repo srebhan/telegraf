@@ -126,13 +126,11 @@ func (*DockerLogs) Start(telegraf.Accumulator) error {
 
 func (d *DockerLogs) Stop() {
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	for _, cancel := range d.containerList {
 		cancel()
 	}
+	d.mu.Unlock()
 	d.wg.Wait()
-
-	d.containerList = make(map[string]context.CancelFunc)
 }
 
 func (d *DockerLogs) GetState() interface{} {
