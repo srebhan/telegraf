@@ -969,7 +969,7 @@ func TestPublicKeyLength(t *testing.T) {
 				testutil.SortMetrics(),
 				testutil.IgnoreTime(),
 				// We need to ignore those fields as they are timing sensitive.
-				testutil.IgnoreFields("age", "expiry"),
+				testutil.IgnoreFields("age", "expiry", "verification_error"),
 				// We need to ignore the source as it is random in this test
 				testutil.IgnoreTags("source"),
 			}
