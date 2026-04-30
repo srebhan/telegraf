@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	_ "embed"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/shirou/gopsutil/v4/load"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
 
@@ -22,61 +24,144 @@ import (
 var sampleConfig string
 
 type System struct {
-	Log telegraf.Logger `toml:"-"`
+	Include []string        `toml:"include"`
+	Log     telegraf.Logger `toml:"-"`
 }
 
 func (*System) SampleConfig() string {
 	return sampleConfig
 }
 
+func (s *System) Init() error {
+	// Suppress deprecation warnings for default-only configs.
+	userSupplied := len(s.Include) > 0
+	if !userSupplied {
+		s.Include = []string{"load", "users", "legacy_cpus", "legacy_uptime"}
+	}
+
+	enabled := make(map[string]bool, len(s.Include))
+	deduped := make([]string, 0, len(s.Include))
+	for _, incl := range s.Include {
+		if enabled[incl] {
+			continue
+		}
+		switch incl {
+		case "load", "users", "cpus", "uptime":
+		case "legacy_cpus":
+			if userSupplied {
+				config.PrintOptionValueDeprecationNotice(
+					"inputs.system",
+					"include",
+					"legacy_cpus",
+					telegraf.DeprecationInfo{
+						Since:     "1.39.0",
+						RemovalIn: "1.45.0",
+						Notice:    "use 'cpus' instead",
+					},
+				)
+			}
+		case "legacy_uptime":
+			if userSupplied {
+				config.PrintOptionValueDeprecationNotice(
+					"inputs.system",
+					"include",
+					"legacy_uptime",
+					telegraf.DeprecationInfo{
+						Since:     "1.39.0",
+						RemovalIn: "1.45.0",
+						Notice:    "use 'uptime' instead",
+					},
+				)
+			}
+		default:
+			return fmt.Errorf("invalid 'include' option %q", incl)
+		}
+		enabled[incl] = true
+		deduped = append(deduped, incl)
+	}
+	s.Include = deduped
+
+	if enabled["cpus"] && enabled["legacy_cpus"] {
+		return errors.New(`"cpus" and "legacy_cpus" are mutually exclusive`)
+	}
+	if enabled["uptime"] && enabled["legacy_uptime"] {
+		return errors.New(`"uptime" and "legacy_uptime" are mutually exclusive`)
+	}
+
+	return nil
+}
+
 func (s *System) Gather(acc telegraf.Accumulator) error {
-	loadavg, err := load.Avg()
-	if err != nil && !strings.Contains(err.Error(), "not implemented") {
-		return err
-	}
-
-	numLogicalCPUs, err := cpu.Counts(true)
-	if err != nil {
-		return err
-	}
-
-	numPhysicalCPUs, err := cpu.Counts(false)
-	if err != nil {
-		return err
-	}
-
-	fields := map[string]interface{}{
-		"load1":           loadavg.Load1,
-		"load5":           loadavg.Load5,
-		"load15":          loadavg.Load15,
-		"n_cpus":          numLogicalCPUs,
-		"n_physical_cpus": numPhysicalCPUs,
-	}
-
-	users, err := host.Users()
-	if err == nil {
-		fields["n_users"] = len(users)
-		fields["n_unique_users"] = findUniqueUsers(users)
-	} else if os.IsNotExist(err) {
-		s.Log.Debugf("Reading users: %s", err.Error())
-	} else if os.IsPermission(err) {
-		s.Log.Debug(err.Error())
-	}
-
 	now := time.Now()
-	acc.AddGauge("system", fields, nil, now)
+	fields := make(map[string]interface{}, 8)
 
-	uptime, err := host.Uptime()
-	if err != nil {
-		return err
+	for _, incl := range s.Include {
+		switch incl {
+		case "load":
+			loadavg, err := load.Avg()
+			if err != nil {
+				if !strings.Contains(err.Error(), "not implemented") {
+					acc.AddError(fmt.Errorf("reading load averages: %w", err))
+				}
+				continue
+			}
+			fields["load1"] = loadavg.Load1
+			fields["load5"] = loadavg.Load5
+			fields["load15"] = loadavg.Load15
+		case "users":
+			users, err := host.Users()
+			if err == nil {
+				fields["n_users"] = len(users)
+				fields["n_unique_users"] = findUniqueUsers(users)
+			} else if os.IsNotExist(err) {
+				s.Log.Debugf("Reading users: %s", err.Error())
+			} else if os.IsPermission(err) {
+				s.Log.Debug(err.Error())
+			} else {
+				s.Log.Warnf("Reading users: %s", err.Error())
+			}
+		case "cpus", "legacy_cpus":
+			numLogicalCPUs, err := cpu.Counts(true)
+			if err != nil {
+				acc.AddError(fmt.Errorf("reading logical CPU count: %w", err))
+				continue
+			}
+			numPhysicalCPUs, err := cpu.Counts(false)
+			if err != nil {
+				acc.AddError(fmt.Errorf("reading physical CPU count: %w", err))
+				continue
+			}
+			if incl == "cpus" {
+				fields["n_virtual_cpus"] = numLogicalCPUs
+			} else {
+				fields["n_cpus"] = numLogicalCPUs
+			}
+			fields["n_physical_cpus"] = numPhysicalCPUs
+		case "uptime":
+			uptime, err := host.Uptime()
+			if err != nil {
+				acc.AddError(fmt.Errorf("reading uptime: %w", err))
+				continue
+			}
+			fields["uptime"] = uptime
+		case "legacy_uptime":
+			uptime, err := host.Uptime()
+			if err != nil {
+				acc.AddError(fmt.Errorf("reading uptime: %w", err))
+				continue
+			}
+			acc.AddCounter("system", map[string]interface{}{
+				"uptime": uptime,
+			}, nil, now)
+			acc.AddFields("system", map[string]interface{}{
+				"uptime_format": formatUptime(uptime),
+			}, nil, now)
+		}
 	}
 
-	acc.AddCounter("system", map[string]interface{}{
-		"uptime": uptime,
-	}, nil, now)
-	acc.AddFields("system", map[string]interface{}{
-		"uptime_format": formatUptime(uptime),
-	}, nil, now)
+	if len(fields) > 0 {
+		acc.AddGauge("system", fields, nil, now)
+	}
 
 	return nil
 }
@@ -88,7 +173,6 @@ func findUniqueUsers(userStats []host.UserStat) int {
 			uniqueUsers[userstat.User] = true
 		}
 	}
-
 	return len(uniqueUsers)
 }
 
@@ -97,7 +181,6 @@ func formatUptime(uptime uint64) string {
 	w := bufio.NewWriter(buf)
 
 	days := uptime / (60 * 60 * 24)
-
 	if days != 0 {
 		s := ""
 		if days > 1 {
