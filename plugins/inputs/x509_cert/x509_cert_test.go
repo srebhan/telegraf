@@ -968,7 +968,9 @@ func TestPublicKeyLength(t *testing.T) {
 			opts := []cmp.Option{
 				testutil.SortMetrics(),
 				testutil.IgnoreTime(),
-				// We need to ignore those fields as they are timing sensitive.
+				// We need to ignore age and expiry fields as they are timing
+				// sensitive. The verification error varies accross OSes so we
+				// also need to ignore it.
 				testutil.IgnoreFields("age", "expiry", "verification_error"),
 				// We need to ignore the source as it is random in this test
 				testutil.IgnoreTags("source"),
