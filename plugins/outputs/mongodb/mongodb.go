@@ -33,10 +33,10 @@ type MongoDB struct {
 	MetricGranularity   string          `toml:"granularity"`
 	Username            config.Secret   `toml:"username"`
 	Password            config.Secret   `toml:"password"`
-	ServerSelectTimeout config.Duration `toml:"timeout"`
-	TTL                 config.Duration `toml:"ttl"`
 	WriteBatch          bool            `toml:"write_batch"`
 	MetadataKeys        []string        `toml:"metadata_keys"`
+	ServerSelectTimeout config.Duration `toml:"timeout"`
+	TTL                 config.Duration `toml:"ttl"`
 	Log                 telegraf.Logger `toml:"-"`
 	tls.ClientConfig
 
@@ -322,17 +322,6 @@ func (s *MongoDB) createCollection(ctx context.Context, name string) error {
 // as UTC so conversion should be performed on the query or aggregation side.
 func (s *MongoDB) marshal(metric telegraf.Metric) bson.D {
 	doc := make(bson.D, 0, len(metric.FieldList())+2)
-	for _, f := range metric.FieldList() {
-		doc = append(doc, primitive.E{Key: f.Key, Value: f.Value})
-	}
-	tags := make(bson.D, 0, len(metric.TagList()))
-	for _, t := range metric.TagList() {
-		tags = append(tags, primitive.E{Key: t.Key, Value: t.Value})
-	}
-	doc = append(doc,
-		primitive.E{Key: "tags", Value: tags},
-		primitive.E{Key: "timestamp", Value: metric.Time()},
-	)
 
 	// Add metadata if specified any
 	if s.metadataFilter != nil {
@@ -344,6 +333,18 @@ func (s *MongoDB) marshal(metric telegraf.Metric) bson.D {
 		}
 		doc = append(doc, primitive.E{Key: "metadata", Value: metadata})
 	}
+	tags := make(bson.D, 0, len(metric.TagList()))
+	for _, t := range metric.TagList() {
+		tags = append(tags, primitive.E{Key: t.Key, Value: t.Value})
+	}
+	doc = append(doc,
+		primitive.E{Key: "tags", Value: tags},
+		primitive.E{Key: "timestamp", Value: metric.Time()},
+	)
+	for _, f := range metric.FieldList() {
+		doc = append(doc, primitive.E{Key: f.Key, Value: f.Value})
+	}
+
 	return doc
 }
 
