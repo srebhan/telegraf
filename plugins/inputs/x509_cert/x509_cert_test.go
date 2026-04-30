@@ -878,7 +878,7 @@ func TestPublicKeyLength(t *testing.T) {
 						"enddate":            end.Unix(),
 						"verification_code":  int64(1),
 						"verification_error": "x509: certificate signed by unknown authority",
-						"public_key_length":  uint64(32),
+						"public_key_length":  uint64(256),
 					},
 					time.Unix(0, 0),
 				),

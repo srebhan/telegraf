@@ -504,7 +504,7 @@ func getFields(cert *x509.Certificate, now time.Time) map[string]interface{} {
 	case *ecdsa.PublicKey:
 		fields["public_key_length"] = uint64(v.Params().BitSize)
 	case ed25519.PublicKey:
-		fields["public_key_length"] = uint64(ed25519.PublicKeySize)
+		fields["public_key_length"] = 8 * uint64(ed25519.PublicKeySize)
 	}
 
 	return fields
