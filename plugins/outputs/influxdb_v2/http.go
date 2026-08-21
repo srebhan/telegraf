@@ -35,6 +35,13 @@ const (
 	defaultMaxWaitRetryAfterSeconds = 10 * 60
 )
 
+var bucketNameReplacer = strings.NewReplacer(
+	" ", "_",
+	"\t", "_",
+	"\n", "_",
+	"\r", "_",
+)
+
 type httpClient struct {
 	url              *url.URL
 	localAddr        *net.TCPAddr
@@ -60,6 +67,9 @@ type httpClient struct {
 	retryCount       atomic.Int64
 	concurrent       uint64
 	log              telegraf.Logger
+
+	logBucketName   map[string]bool
+	logBucketNameMu sync.Mutex
 
 	// Mutex to protect the retry-time field
 	sync.Mutex
@@ -127,6 +137,8 @@ func (c *httpClient) Init() error {
 	}
 	c.params = params
 
+	c.logBucketName = make(map[string]bool)
+
 	// Use single-threaded writing by default.
 	if c.concurrent < 1 {
 		c.concurrent = 1
@@ -160,6 +172,23 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 	limitReached := -1
 	var writeErr internal.PartialWriteError
 	for i, batch := range batches {
+		// Make sure we use a valid bucket name for writing
+		if strings.ContainsAny(batch.bucket, " \t\r\n") {
+			oldName := batch.bucket
+			batch.bucket = bucketNameReplacer.Replace(batch.bucket)
+			c.logBucketNameMu.Lock()
+			if !c.logBucketName[oldName] {
+				c.log.Warnf("Invalid bucket name %q sending metrics to bucket %q instead!", oldName, batch.bucket)
+				c.logBucketName[oldName] = true
+			}
+			c.logBucketNameMu.Unlock()
+		}
+
+		if batch.bucket == "" {
+			c.log.Errorf("Fallback bucket not defined or empty! Dropping %d metrics.", len(batch.metrics))
+			continue
+		}
+
 		// Get the current limit for the outbound data
 		limit := c.rateLimiter.Remaining(ratets)
 

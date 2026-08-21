@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -45,25 +46,70 @@ func TestCloseWithoutConnect(t *testing.T) {
 }
 
 func TestDefaultURL(t *testing.T) {
-	plugin := influxdb.InfluxDB{}
+	plugin := influxdb.InfluxDB{Bucket: "telegraf"}
 	require.NoError(t, plugin.Init())
 	require.Len(t, plugin.URLs, 1)
 	require.Equal(t, "http://localhost:8086", plugin.URLs[0])
 }
 
-func TestInit(t *testing.T) {
-	tests := []*influxdb.InfluxDB{
+func TestInitFail(t *testing.T) {
+	tests := []struct {
+		name     string
+		urls     []string
+		bucket   string
+		tlsCfg   *tls.ClientConfig
+		expected string
+	}{
 		{
-			URLs: []string{"https://localhost:8080"},
-			ClientConfig: tls.ClientConfig{
+			name:   "invalid TLS CA",
+			urls:   []string{"https://localhost:8080"},
+			bucket: "foo",
+			tlsCfg: &tls.ClientConfig{
 				TLSCA: "thing",
 			},
+			expected: "could not read certificate \"thing\"",
+		},
+		{
+			name:     "no bucket",
+			urls:     []string{"http://localhost:8080"},
+			expected: "neither 'bucket' nor 'bucket_tag' is set",
+		},
+		{
+			name:     "bucket with space",
+			urls:     []string{"http://localhost:8080"},
+			bucket:   "my bucket",
+			expected: "invalid characters in 'bucket' name",
+		},
+		{
+			name:     "bucket with tab",
+			urls:     []string{"http://localhost:8080"},
+			bucket:   "my\tbucket",
+			expected: "invalid characters in 'bucket' name",
+		},
+		{
+			name:     "bucket with LF",
+			urls:     []string{"http://localhost:8080"},
+			bucket:   "my\nbucket",
+			expected: "invalid characters in 'bucket' name",
+		},
+		{
+			name:     "bucket with CR",
+			urls:     []string{"http://localhost:8080"},
+			bucket:   "my\rbucket",
+			expected: "invalid characters in 'bucket' name",
 		},
 	}
 
-	for _, plugin := range tests {
-		t.Run(plugin.URLs[0], func(t *testing.T) {
-			require.Error(t, plugin.Init())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plugin := &influxdb.InfluxDB{
+				URLs:   tt.urls,
+				Bucket: tt.bucket,
+			}
+			if tt.tlsCfg != nil {
+				plugin.ClientConfig = *tt.tlsCfg
+			}
+			require.ErrorContains(t, plugin.Init(), tt.expected)
 		})
 	}
 }
@@ -110,6 +156,7 @@ func TestConnectFail(t *testing.T) {
 
 	for _, plugin := range tests {
 		t.Run(plugin.URLs[0], func(t *testing.T) {
+			plugin.Bucket = "telegraf"
 			require.NoError(t, plugin.Init())
 			require.Error(t, plugin.Connect())
 		})
@@ -120,6 +167,7 @@ func TestConnect(t *testing.T) {
 	tests := []*influxdb.InfluxDB{
 		{
 			URLs:      []string{"http://localhost:1234"},
+			Bucket:    "telegraf",
 			HTTPProxy: "http://localhost:8086",
 			HTTPHeaders: map[string]*config.Secret{
 				"x": &headerSecret,
@@ -427,6 +475,98 @@ func TestWriteWithPartialSerializationAndSendError(t *testing.T) {
 	require.ErrorAs(t, err, &werr)
 	require.Empty(t, werr.MetricsAccept)
 	require.ElementsMatch(t, werr.MetricsReject, []int{0, 2})
+}
+
+func TestWriteBucketTag(t *testing.T) {
+	tests := []struct {
+		name     string
+		bucket   string
+		expected string
+	}{
+		{
+			name:     "space",
+			bucket:   "foo bar",
+			expected: "foo_bar",
+		},
+		{
+			name:     "tab",
+			bucket:   "foo\tbar",
+			expected: "foo_bar",
+		},
+		{
+			name:     "CRLF",
+			bucket:   "foo\r\nbar",
+			expected: "foo__bar",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup a test server
+			var actual string
+			var actualMu sync.Mutex
+			ts := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					switch r.URL.Path {
+					case "/api/v2/write":
+						if err := r.ParseForm(); err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							t.Error(err)
+							return
+						}
+
+						actualMu.Lock()
+						actual = r.Form.Get("bucket")
+						actualMu.Unlock()
+						w.WriteHeader(http.StatusNoContent)
+						return
+					default:
+						w.WriteHeader(http.StatusNotFound)
+						return
+					}
+				}),
+			)
+			defer ts.Close()
+
+			// Setup plugin and connect
+			plugin := &influxdb.InfluxDB{
+				URLs:             []string{"http://" + ts.Listener.Addr().String()},
+				BucketTag:        "bucket",
+				ExcludeBucketTag: true,
+				ContentEncoding:  "identity",
+				Log:              &testutil.Logger{},
+			}
+			require.NoError(t, plugin.Init())
+			require.NoError(t, plugin.Connect())
+			defer plugin.Close()
+
+			// Send the metrics which should be succeed if sent twice
+			metrics := []telegraf.Metric{
+				metric.New(
+					"cpu",
+					map[string]string{
+						"bucket": tt.bucket,
+					},
+					map[string]interface{}{
+						"value": 42.0,
+					},
+					time.Unix(0, 0),
+				),
+			}
+			require.NoError(t, plugin.Write(metrics))
+
+			require.Eventually(t, func() bool {
+				actualMu.Lock()
+				r := actual != ""
+				actualMu.Unlock()
+				return r
+			}, time.Second, 100*time.Millisecond)
+
+			actualMu.Lock()
+			defer actualMu.Unlock()
+			require.Equal(t, tt.expected, actual)
+		})
+	}
 }
 
 func TestWriteBucketTagWorksOnRetry(t *testing.T) {

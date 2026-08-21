@@ -68,6 +68,13 @@ func (i *InfluxDB) Init() error {
 		i.URLs = append(i.URLs, "http://localhost:8086")
 	}
 
+	if i.Bucket == "" && i.BucketTag == "" {
+		return errors.New("neither 'bucket' nor 'bucket_tag' is set")
+	}
+	if i.Bucket != "" && strings.ContainsAny(i.Bucket, " \t\n\r") {
+		return fmt.Errorf("invalid characters in 'bucket' name %q", i.Bucket)
+	}
+
 	// Init encoding if configured
 	switch i.ContentEncoding {
 	case "", "gzip":

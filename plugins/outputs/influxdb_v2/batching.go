@@ -49,7 +49,7 @@ func createBatchesFromTag(metrics []telegraf.Metric, tag, fallback string, size 
 	collector := make(map[string]*batch)
 	for i, metric := range metrics {
 		bucket, ok := metric.GetTag(tag)
-		if !ok {
+		if !ok || bucket == "" {
 			bucket = fallback
 		} else if exclude {
 			// Avoid modifying the metric if we do remove the tag
